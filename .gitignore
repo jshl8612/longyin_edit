@@ -1,0 +1,9 @@
+# 游戏数据：只保存在本地项目文件夹，不放进公开仓库
+data/
+source/网页存档修改器/game_dict.json
+source/网页存档修改器/bnames.json
+source/网页存档修改器/save_editor.html
+release/*.html
+
+# 本地说明（列出本地数据文件与路径）
+LOCAL.md
