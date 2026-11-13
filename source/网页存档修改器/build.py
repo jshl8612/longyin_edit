@@ -1,10 +1,16 @@
 import os, sys
-# 游戏数据（game_dict.json 武学/天赋/门派名等，bnames.json 建筑名）从游戏里整理而来，只保存在本地，不放进公开仓库
-for need in ('game_dict.json', 'bnames.json'):
-    if not os.path.exists(need): sys.exit('缺少 ' + need + '（游戏数据，只在本地项目文件夹里，不在 Git 仓库中）')
+# 两种产物：
+#   python build.py            → save_editor.html：网页版，游戏数据（game_dict.json、bnames.json，仅本地）直接内嵌
+#   python build.py --template → save_editor_template.html：给 exe 用，保留 __GAME_DICT__ / __BNAMES__ 占位，exe 运行时从游戏文件读取后填入
+TEMPLATE = '--template' in sys.argv
+OUT = 'save_editor_template.html' if TEMPLATE else 'save_editor.html'
+if not TEMPLATE:
+    for need in ('game_dict.json', 'bnames.json'):
+        if not os.path.exists(need): sys.exit('缺少 ' + need + '（游戏数据，只在本地项目文件夹里，不在 Git 仓库中）')
 src=open('hero_editor.html',encoding='utf-8').read()
 assert src.count('__GAME_DICT__') == 1
-src=src.replace('__GAME_DICT__', open('game_dict.json',encoding='utf-8').read().strip())
+if not TEMPLATE:
+    src=src.replace('__GAME_DICT__', open('game_dict.json',encoding='utf-8').read().strip())
 def rep(old,new,count=1):
     global src
     n=src.count(old); assert n==count,(old[:60],n); src=src.replace(old,new)
@@ -38,7 +44,7 @@ rep("    if (state.rawData) return;\n    dropzone.classList.add('dragging');"," 
 rep("  e.preventDefault();\n  if (state.rawData) return;\n  const item","  e.preventDefault();\n  if (state.rawData || area.data) return;\n  const item")
 rep("if (state.dirtyIdx.size > 0 && !confirm('将丢弃所有未保存的修改，从磁盘重新读取原文件？')) return;","if ((state.dirtyIdx.size > 0 || (area.data && areaDirty() > 0)) && !confirm('将丢弃所有未保存的修改，从磁盘重新读取原文件？')) return;")
 rep("  if (state.dirtyIdx.size > 0 && !confirm('有未保存的修改，确定返回？')) return;\n  state.rawData = null;","  if ((state.dirtyIdx.size > 0 || (area.data && areaDirty() > 0)) && !confirm('有未保存的修改，确定返回？')) return;\n  if (state.mode === 'area') leaveAreaMode();\n  state.rawData = null;")
-js=open('gz_io.js',encoding='utf-8').read()+'\n'+open('area_mode.js',encoding='utf-8').read().replace('__BNAMES__',open('bnames.json',encoding='utf-8').read())
+js=open('gz_io.js',encoding='utf-8').read()+'\n'+(open('area_mode.js',encoding='utf-8').read() if TEMPLATE else open('area_mode.js',encoding='utf-8').read().replace('__BNAMES__',open('bnames.json',encoding='utf-8').read()))
 i=src.rindex('</script>'); src=src[:i]+js+'\n'+src[i:]
 
 # 压缩存档（游戏 1.1.3 起 Hero/Save/Info 为 gzip）：读入自动解压，写回保持原格式
@@ -180,5 +186,5 @@ function refreshDerivedAttrGroups() {
 }
 function closeAttrModal() {""")
 rep("      <span>装备中: ${sk.equiped ? '✓' : '✗'}</span>\n    `,\n    onExtraInput: (key, val) => {\n      const v = parseFloat(val);", "      ${sk.equiped === undefined ? '' : `<span>装备中: ${sk.equiped ? '✓' : '✗'}</span>`}\n    `,\n    onExtraInput: (key, val) => {\n      const v = parseFloat(val);")
-open('save_editor.html','w',encoding='utf-8').write(src)
+open(OUT,'w',encoding='utf-8').write(src)
 print('built', len(src.encode('utf-8')), 'bytes')

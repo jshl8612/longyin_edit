@@ -1,5 +1,7 @@
 # 追加在 build.py 之后执行：在 save_editor.html 的基础上加入文件夹 / 槽位模式
-src=open('save_editor.html',encoding='utf-8').read()
+import sys
+OUT = 'save_editor_template.html' if '--template' in sys.argv else 'save_editor.html'
+src=open(OUT,encoding='utf-8').read()
 def rep(old,new,count=1):
     global src
     n=src.count(old); assert n==count,(old[:70],n); src=src.replace(old,new)
@@ -34,6 +36,6 @@ rep("  if (!btn) return;\n  if (state.fileHandle) {",
     "    document.querySelectorAll('#modeSwitch button').forEach(b => b.classList.toggle('dirty', b.dataset.mode === 'hero' ? state.dirtyIdx.size > 0 : areaDirty() > 0));\n    return;\n  }\n  if (state.fileHandle) {")
 # 6) 样式与脚本
 i=src.index('</style>'); src=src[:i]+open('slot.css',encoding='utf-8').read()+src[i:]
-i=src.rindex('</script>'); src=src[:i]+heroFn+open('slot_mode.js',encoding='utf-8').read()+'\n'+src[i:]
-open('save_editor.html','w',encoding='utf-8').write(src)
+i=src.rindex('</script>'); src=src[:i]+heroFn+open('slot_mode.js',encoding='utf-8').read()+'\n'+open('host_shim.js',encoding='utf-8').read()+'\n'+src[i:]
+open(OUT,'w',encoding='utf-8').write(src)
 print('built with folder mode', len(src.encode('utf-8')), 'bytes')

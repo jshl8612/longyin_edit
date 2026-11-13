@@ -23,3 +23,5 @@
   .sv-name span { font-weight: 400; font-size: 12px; opacity: 0.6; margin-left: 10px; }
   .sv-sub { font-size: 12px; opacity: 0.7; margin-top: 3px; }
   .sv-time { font-family: 'JetBrains Mono', monospace; font-size: 11px; opacity: 0.55; }
+  /* exe 模式：存档由 exe 提供，不需要拖拽 / 选文件夹 */
+  body.host-mode #dropzone, body.host-mode #btnSlotBack { display: none !important; }
