@@ -1,0 +1,25 @@
+
+  /* ===== 文件夹 / 槽位模式 ===== */
+  .mode-switch { display: flex; border: 1px solid var(--ink); margin-right: 10px; }
+  .mode-switch.hidden { display: none; }
+  .mode-switch button { background: transparent; border: none; padding: 6px 16px; font-family: inherit; font-size: 13px; letter-spacing: 0.2em; cursor: pointer; color: var(--ink); }
+  .mode-switch button + button { border-left: 1px solid var(--ink); }
+  .mode-switch button.active { background: var(--ink); color: var(--paper); }
+  .mode-switch button.dirty::after { content: '●'; color: var(--vermillion); margin-left: 4px; font-size: 9px; }
+  .btn.hidden { display: none; }
+  .drop-pick { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .sv-picker { position: fixed; inset: 60px 0 0 0; overflow-y: auto; padding: 32px 24px; }
+  .sv-picker.hidden { display: none; }
+  .sv-wrap { max-width: 760px; margin: 0 auto; }
+  .sv-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 18px; }
+  .sv-head .t { font-size: 20px; letter-spacing: 0.3em; }
+  .sv-head .t .ornament { color: var(--vermillion); margin-right: 8px; }
+  .sv-head .p { font-family: 'JetBrains Mono', monospace; font-size: 11px; opacity: 0.55; flex: 1; }
+  .sv-card { display: flex; align-items: center; gap: 16px; padding: 14px 18px; border: 1px solid var(--paper-line); background: var(--paper); margin-bottom: 8px; cursor: pointer; transition: border-color .15s, transform .15s; }
+  .sv-card:hover { border-color: var(--vermillion); transform: translateX(3px); }
+  .sv-no { font-family: 'Cormorant Garamond', serif; font-size: 28px; width: 34px; text-align: center; color: var(--vermillion); }
+  .sv-main { flex: 1; min-width: 0; }
+  .sv-name { font-size: 15px; font-weight: 600; }
+  .sv-name span { font-weight: 400; font-size: 12px; opacity: 0.6; margin-left: 10px; }
+  .sv-sub { font-size: 12px; opacity: 0.7; margin-top: 3px; }
+  .sv-time { font-family: 'JetBrains Mono', monospace; font-size: 11px; opacity: 0.55; }
