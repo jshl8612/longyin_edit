@@ -31,3 +31,15 @@
   .area-legend .tile.k-void { background: #5d7a74; }
   .area-note { font-size: 12px; line-height: 1.8; opacity: 0.75; border-top: 1px solid var(--paper-line); padding-top: 10px; }
   @media (max-width: 900px) { .area-mapwrap { --tile: 26px; } .area-body { padding: 12px; } }
+  .tile.bedited { box-shadow: inset 0 0 0 2px #2f6fb0; }
+  .tile.k-building.bedited { background: #6f8fb3; }
+  .tile.picked { outline: 3px solid #2f6fb0; outline-offset: -3px; z-index: 2; }
+  .area-legend .tile.bedited { background: #6f8fb3; }
+  .tile-panel { border: 1px solid var(--paper-line); padding: 10px 12px; margin-bottom: 14px; font-size: 12px; background: rgba(255,255,255,0.35); }
+  .tile-panel .tp-head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 8px; }
+  .tile-panel .tp-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+  .tile-panel .tp-row label { width: 56px; flex: 0 0 56px; opacity: 0.75; }
+  .tile-panel select, .tile-panel input[type=number] { flex: 1; min-width: 0; padding: 2px 6px; border: 1px solid var(--paper-line); background: transparent; font-family: inherit; font-size: 12px; color: var(--ink); }
+  .tile-panel .tp-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .tile-panel .tp-dim, .tile-panel .tp-note { opacity: 0.65; }
+  .tile-panel .tp-note { margin-top: 6px; line-height: 1.6; }
