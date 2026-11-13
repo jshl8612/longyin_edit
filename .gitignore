@@ -3,7 +3,6 @@ data/
 source/网页存档修改器/game_dict.json
 source/网页存档修改器/bnames.json
 source/网页存档修改器/save_editor.html
-release/*.html
 
 # 本地说明（列出本地数据文件与路径）
 LOCAL.md
