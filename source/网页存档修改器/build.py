@@ -70,5 +70,115 @@ rep("""  body += '</div>';
         <div class="section-title">气血 / 体力 / 内力 / 伤势</div>
         <div class="section-actions">
           ${hero.realMaxHp === undefined ? '' : '<button class="btn btn-mini" id="btnFullHeal">满血满内</button>'}""")
+
+# 游戏 1.1.3 起武功的「基础属性」「招式效果」（speEquipData / speUseData）不再存档，读档时按武学表和等级重新计算：
+# 新存档里改成只读显示（按游戏规则算出来），突破属性 extraAddData 仍可编辑
+rep("""// 武功属性编辑
+function openAttrModalForKungfu(hero, sk, kfIdx) {""", """// 按武学表计算武功效果（与游戏一致：数值 ×(1+0.1×等级)；击退、拉近不随等级变化；运功效果里的内力上限再 ×2）
+const ATTR_ID_BY_NAME = (() => { const m = {}; for (const [id, e] of Object.entries(ATTR_DICT)) if (!(e.n in m)) m[e.n] = id; return m; })();
+function calcKungfuEffect(skillID, lv, which) {
+  const e = KF_DICT[String(skillID)] || {};
+  const src = which === 'eq' ? e.eq : e.us;
+  const out = {};
+  if (!src) return out;
+  for (const part of src.split(';')) {
+    const m = part.match(/^(.+?)([+-]?[\\d.]+)$/);
+    if (!m) continue;
+    const id = ATTR_ID_BY_NAME[m[1]];
+    if (id === undefined) continue;
+    let v = parseFloat(m[2]);
+    if (m[1] !== '击退' && m[1] !== '拉近') v *= 1 + 0.1 * (lv || 0);
+    if (which === 'eq' && m[1] === '内力上限') v *= 2;
+    out[id] = Math.round(v * 10000) / 10000;
+  }
+  return out;
+}
+// 武功属性编辑
+function openAttrModalForKungfu(hero, sk, kfIdx) {
+  const derived = sk.speEquipData === undefined && sk.speUseData === undefined;   // 新版存档：这两项由游戏计算""")
+rep("""      {
+        key: 'base',
+        label: '基础属性 (随等级提升)',
+        en: 'speEquipData',
+        ensure: () => {
+          if (!sk.speEquipData) sk.speEquipData = { heroSpeAddData: {} };
+          if (!sk.speEquipData.heroSpeAddData) sk.speEquipData.heroSpeAddData = {};
+        },
+        getDict: () => sk.speEquipData.heroSpeAddData,
+      },""", """      derived ? {
+        key: 'base', readOnly: true,
+        label: '基础属性 (随等级提升，游戏自动计算)',
+        en: 'speEquipData',
+        getDict: () => calcKungfuEffect(sk.skillID, sk.lv, 'eq'),
+      } : {
+        key: 'base',
+        label: '基础属性 (随等级提升)',
+        en: 'speEquipData',
+        ensure: () => {
+          if (!sk.speEquipData) sk.speEquipData = { heroSpeAddData: {} };
+          if (!sk.speEquipData.heroSpeAddData) sk.speEquipData.heroSpeAddData = {};
+        },
+        getDict: () => sk.speEquipData.heroSpeAddData,
+      },""")
+rep("""      {
+        key: 'use',
+        label: '招式效果 (释放招式时)',
+        en: 'speUseData',
+        ensure: () => {
+          if (!sk.speUseData) sk.speUseData = { heroSpeAddData: {} };
+          if (!sk.speUseData.heroSpeAddData) sk.speUseData.heroSpeAddData = {};
+        },
+        getDict: () => sk.speUseData.heroSpeAddData,
+      },""", """      derived ? {
+        key: 'use', readOnly: true,
+        label: '招式效果 (释放招式时，游戏自动计算)',
+        en: 'speUseData',
+        getDict: () => calcKungfuEffect(sk.skillID, sk.lv, 'us'),
+      } : {
+        key: 'use',
+        label: '招式效果 (释放招式时)',
+        en: 'speUseData',
+        ensure: () => {
+          if (!sk.speUseData) sk.speUseData = { heroSpeAddData: {} };
+          if (!sk.speUseData.heroSpeAddData) sk.speUseData.heroSpeAddData = {};
+        },
+        getDict: () => sk.speUseData.heroSpeAddData,
+      },""")
+# lv change should refresh computed groups
+rep("""    onExtraInput: (key, val) => {
+      const v = parseFloat(val);
+      sk[key] = Number.isNaN(v) ? 0 : v;
+    },""", """    onExtraInput: (key, val) => {
+      const v = parseFloat(val);
+      sk[key] = Number.isNaN(v) ? 0 : v;
+      if (derived && key === 'lv') refreshDerivedAttrGroups();
+    },""")
+# renderAttrModal: read-only groups
+rep("""        return `<div class="rel-item" data-attr-row="${g.key}-${id}">""", """        if (g.readOnly) return `<div class="rel-item" data-attr-row="${g.key}-${id}">
+          <span class="rid">#${id}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(name)}</span>
+          <span style="width:80px;text-align:right;font-size:12px">${+displayVal.toFixed(4)}</span>
+          ${isPct ? '<span style="font-size:10px;color:var(--ink-soft);width:14px">%</span>' : '<span style="width:14px"></span>'}
+          <span style="width:22px"></span>
+        </div>`;
+        return `<div class="rel-item" data-attr-row="${g.key}-${id}">""")
+rep("""          <div class="section-actions">
+            <button class="btn btn-mini" data-attr-add="${g.key}">+ 添加</button>
+          </div>""", """          <div class="section-actions">
+            ${g.readOnly ? '<span style="font-size:11px;color:var(--ink-soft)">只读：新版存档不保存，由游戏按武学和等级计算</span>' : `<button class="btn btn-mini" data-attr-add="${g.key}">+ 添加</button>`}
+          </div>""")
+rep("""      <div class="section" style="margin-top:12px">""", """      <div class="section" style="margin-top:12px" data-attr-group="${g.key}">""")
+rep("""function closeAttrModal() {""", """// 等级改动后只重画只读的计算组（不重画整个弹窗，避免输入框失去焦点）
+function refreshDerivedAttrGroups() {
+  if (!attrModalCtx) return;
+  const keep = document.activeElement;
+  const body = document.getElementById('attrModalBody');
+  renderAttrModal();
+  // renderAttrModal 会重建整个弹窗，把焦点还给等级输入框
+  const lv = body.querySelector('[data-attr-extra-input="lv"]');
+  if (lv && keep && keep.dataset && keep.dataset.attrExtraInput === 'lv') { lv.focus(); const n = lv.value.length; try { lv.setSelectionRange(n, n); } catch (e) {} }
+}
+function closeAttrModal() {""")
+rep("      <span>装备中: ${sk.equiped ? '✓' : '✗'}</span>\n    `,\n    onExtraInput: (key, val) => {\n      const v = parseFloat(val);", "      ${sk.equiped === undefined ? '' : `<span>装备中: ${sk.equiped ? '✓' : '✗'}</span>`}\n    `,\n    onExtraInput: (key, val) => {\n      const v = parseFloat(val);")
 open('save_editor.html','w',encoding='utf-8').write(src)
 print('built', len(src.encode('utf-8')), 'bytes')

@@ -237,7 +237,7 @@ async function saveSlot() {
 async function reloadSlot() {
   const s = state.slot;
   if (slotDirtyFiles().length && !confirm('将丢弃所有未保存的修改，从磁盘重新读取这个存档？')) return;
-  state.dirtyIdx.clear(); area.edits = new Map();
+  state.dirtyIdx.clear(); area.edits = new Map(); area.bedits = new Map(); area.pick = -1;
   await openSlot(s.dir, s.root, s.name);
 }
 
@@ -245,7 +245,7 @@ async function backToSlots() {
   if (!slotRoot) return;
   if (slotDirtyFiles().length && !confirm('有未保存的修改，确定换存档？')) return;
   state.slot = null; state.rawData = null; state.selectedIdx = -1; state.dirtyIdx.clear();
-  area.data = null; area.text = null; area.spans = null; area.edits = new Map(); area.sel = -1;
+  area.data = null; area.text = null; area.spans = null; area.edits = new Map(); area.bedits = new Map(); area.pick = -1; area.sel = -1;
   await showSlotPicker(slotRoot);
 }
 
