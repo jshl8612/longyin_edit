@@ -303,6 +303,66 @@ namespace LongYinMod
             }
         }
 
+        // 导出函数地址（例如 il2cpp_string_new）
+        public ulong Export(string name)
+        {
+            int pe = Bin.I32(Data, 0x3C);
+            int opt = pe + 24;
+            uint rva = Bin.U32(Data, opt + 112), size = Bin.U32(Data, opt + 116);
+            long dir = VaToOff(ImageBase + rva);
+            if (rva == 0 || dir < 0) throw new ModException("GameAssembly.dll 没有导出表");
+            uint nNames = Bin.U32(Data, dir + 24);
+            long funcs = VaToOff(ImageBase + Bin.U32(Data, dir + 28));
+            long names = VaToOff(ImageBase + Bin.U32(Data, dir + 32));
+            long ords = VaToOff(ImageBase + Bin.U32(Data, dir + 36));
+            var want = Encoding.ASCII.GetBytes(name + "\0");
+            for (uint i = 0; i < nNames; i++)
+            {
+                long np = VaToOff(ImageBase + Bin.U32(Data, names + i * 4));
+                bool eq = true;
+                for (int k = 0; k < want.Length && eq; k++) if (Data[np + k] != want[k]) eq = false;
+                if (!eq) continue;
+                int ord = Bin.U16(Data, ords + i * 2);
+                return ImageBase + Bin.U32(Data, funcs + ord * 4);
+            }
+            throw new ModException("GameAssembly.dll 里找不到导出函数 " + name);
+        }
+
+        // 在文件末尾新增一个可执行节，返回新文件；caveVa = 新节的虚拟地址
+        public static byte[] AddSection(byte[] data, string name, int size, out ulong caveVa)
+        {
+            var img = new PeImage(data);
+            int pe = Bin.I32(data, 0x3C);
+            int nsec = Bin.U16(data, pe + 6);
+            int optSize = Bin.U16(data, pe + 20);
+            int opt = pe + 24;
+            uint secAlign = Bin.U32(data, opt + 32), fileAlign = Bin.U32(data, opt + 36), hdrSize = Bin.U32(data, opt + 60);
+            int hdr = opt + optSize + nsec * 40;
+            uint firstRaw = uint.MaxValue;
+            foreach (var s in img.Sections) if (s.RawSize > 0) firstRaw = Math.Min(firstRaw, s.RawPtr);
+            if (hdr + 40 > Math.Min(hdrSize, firstRaw)) throw new ModException("PE 头没有空间再加一个节");
+            for (int i = hdr; i < hdr + 40; i++) if (data[i] != 0) throw new ModException("PE 头节表后面不是空的");
+            var last = img.Sections[img.Sections.Count - 1];
+            Func<long, uint, long> align = (v, a) => (v + a - 1) / a * a;
+            uint va = (uint)align(Math.Max(last.VA + Math.Max(last.VSize, 1u), last.VA + last.RawSize), secAlign);
+            foreach (var s in img.Sections) va = Math.Max(va, (uint)align(s.VA + Math.Max(s.VSize, s.RawSize), secAlign));
+            uint rawPtr = (uint)align(data.Length, fileAlign);
+            uint rawSize = (uint)align(size, fileAlign);
+            var o = new byte[rawPtr + rawSize];
+            Array.Copy(data, o, data.Length);
+            var nb = Encoding.ASCII.GetBytes(name);
+            Array.Copy(nb, 0, o, hdr, Math.Min(8, nb.Length));
+            Array.Copy(BitConverter.GetBytes((uint)size), 0, o, hdr + 8, 4);
+            Array.Copy(BitConverter.GetBytes(va), 0, o, hdr + 12, 4);
+            Array.Copy(BitConverter.GetBytes(rawSize), 0, o, hdr + 16, 4);
+            Array.Copy(BitConverter.GetBytes(rawPtr), 0, o, hdr + 20, 4);
+            Array.Copy(BitConverter.GetBytes(0x60000020u), 0, o, hdr + 36, 4);   // code | execute | read
+            Array.Copy(BitConverter.GetBytes((ushort)(nsec + 1)), 0, o, pe + 6, 2);
+            Array.Copy(BitConverter.GetBytes((uint)align(va + size, secAlign)), 0, o, opt + 56, 4);   // SizeOfImage
+            caveVa = img.ImageBase + va;
+            return o;
+        }
+
         public long VaToOff(ulong va)
         {
             if (va < ImageBase) return -1;
