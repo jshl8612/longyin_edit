@@ -208,13 +208,13 @@ namespace LongYinMod
         static string Bak(string p) { return p + ".bak"; }
 
         // ---------------- resources.assets : BuildingData row ----------------
-        static SerializedFile.ObjInfo FindTextAsset(SerializedFile sf, string name)
+        internal static SerializedFile.ObjInfo FindTextAsset(SerializedFile sf, string name)
         {
             foreach (var o in sf.OfClass(49)) if (sf.ObjName(o) == name) return o;
             throw new ModException("resources.assets 里找不到表 " + name);
         }
 
-        static string ReadTextAsset(byte[] raw, out int scriptStart, out int scriptLen)
+        internal static string ReadTextAsset(byte[] raw, out int scriptStart, out int scriptLen)
         {
             int o = 0;
             Bin.ReadAlignedString(raw, ref o);

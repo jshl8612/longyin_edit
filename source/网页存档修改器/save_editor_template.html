@@ -1,0 +1,3595 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>龙胤立志传 · 存档修改器</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;900&family=Cormorant+Garamond:wght@300;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --ink: #1a1410;
+    --ink-soft: #4a3c30;
+    --paper: #f4ead5;
+    --paper-dim: #e8dcc0;
+    --paper-line: #c9b894;
+    --paper-deep: #d8c896;
+    --vermillion: #b03030;
+    --vermillion-dark: #7a1f1f;
+    --gold: #b08838;
+    --jade: #4a6b4a;
+    --shadow: rgba(26, 20, 16, 0.18);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: 'Noto Serif SC', serif;
+    background: var(--paper);
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(176, 48, 48, 0.04) 0%, transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(176, 136, 56, 0.06) 0%, transparent 50%),
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.08 0 0 0 0 0.06 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    color: var(--ink);
+  }
+
+  .topbar {
+    height: 60px;
+    border-bottom: 1px solid var(--paper-line);
+    display: flex; align-items: center;
+    padding: 0 22px; gap: 20px;
+    background: linear-gradient(180deg, rgba(244,234,213,0.95), rgba(232,220,192,0.95));
+    backdrop-filter: blur(8px);
+    position: relative; z-index: 10;
+  }
+  .brand { display: flex; align-items: baseline; gap: 14px; }
+  .brand-cn { font-weight: 900; font-size: 20px; letter-spacing: 0.15em; }
+  .brand-cn .accent { color: var(--vermillion); }
+  .brand-en { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 12px; opacity: 0.55; }
+  .topbar-actions { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+
+  .btn {
+    font-family: 'Noto Serif SC', serif; font-size: 12px; letter-spacing: 0.1em;
+    padding: 7px 16px; border: 1px solid var(--ink); background: transparent;
+    color: var(--ink); cursor: pointer; transition: all 0.15s;
+  }
+  .btn:hover { background: var(--ink); color: var(--paper); }
+  .btn-primary { background: var(--vermillion); border-color: var(--vermillion); color: var(--paper); }
+  .btn-primary:hover { background: var(--vermillion-dark); border-color: var(--vermillion-dark); }
+  .btn-ghost { border-color: var(--paper-line); opacity: 0.75; }
+  .btn-mini { font-size: 11px; padding: 4px 10px; letter-spacing: 0.05em; }
+  .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn:disabled:hover { background: transparent; color: var(--ink); }
+
+  .file-info { font-family: 'JetBrains Mono', monospace; font-size: 11px; opacity: 0.55; padding-right: 4px; }
+
+  .dropzone {
+    position: absolute; inset: 60px 0 0 0;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 5; transition: all 0.2s;
+  }
+  .dropzone.hidden { display: none; }
+  .dropzone.dragging { background: rgba(176, 48, 48, 0.08); }
+  .drop-card {
+    width: min(560px, 86vw); padding: 56px 48px;
+    border: 2px dashed var(--paper-line); text-align: center;
+    background: rgba(244,234,213,0.6); position: relative;
+  }
+  .dropzone.dragging .drop-card { border-color: var(--vermillion); border-style: solid; }
+  .drop-card::before, .drop-card::after {
+    content: ''; position: absolute; width: 24px; height: 24px;
+    border: 2px solid var(--vermillion);
+  }
+  .drop-card::before { top: -2px; left: -2px; border-right: none; border-bottom: none; }
+  .drop-card::after { bottom: -2px; right: -2px; border-left: none; border-top: none; }
+  .drop-seal {
+    width: 64px; height: 64px; margin: 0 auto 24px;
+    background: var(--vermillion); color: var(--paper);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 28px;
+    transform: rotate(-3deg); box-shadow: 2px 2px 0 var(--shadow);
+  }
+  .drop-title { font-size: 22px; font-weight: 600; letter-spacing: 0.2em; margin-bottom: 10px; }
+  .drop-sub { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 14px; opacity: 0.6; margin-bottom: 26px; }
+  .drop-hint { font-family: 'JetBrains Mono', monospace; font-size: 11px; opacity: 0.5; }
+  .drop-pick { margin-top: 20px; }
+
+  .workspace {
+    position: absolute; top: 60px; left: 0; right: 0; bottom: 0;
+    display: grid; grid-template-columns: 280px 1fr;
+    overflow: hidden;
+  }
+  .workspace.hidden { display: none; }
+
+  .roster {
+    border-right: 1px solid var(--paper-line);
+    background: rgba(232, 220, 192, 0.4);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .roster-head { padding: 14px 18px 10px; border-bottom: 1px solid var(--paper-line); }
+  .roster-title { font-size: 14px; font-weight: 600; letter-spacing: 0.25em; }
+  .roster-title .ornament { color: var(--vermillion); margin-right: 6px; }
+  .roster-count { font-family: 'JetBrains Mono', monospace; font-size: 11px; opacity: 0.55; margin-top: 2px; }
+  .roster-search { padding: 8px 18px; border-bottom: 1px solid var(--paper-line); }
+  .roster-search input {
+    width: 100%; border: none; border-bottom: 1px solid var(--paper-line);
+    background: transparent; padding: 5px 0;
+    font-family: 'Noto Serif SC', serif; font-size: 13px; color: var(--ink); outline: none;
+  }
+  .roster-search input:focus { border-bottom-color: var(--vermillion); }
+  .roster-force-wrap { padding: 6px 18px 4px; border-bottom: 1px solid var(--paper-line); }
+  .roster-force {
+    width: 100%; border: 1px solid var(--paper-line); background: transparent;
+    padding: 4px 6px; font-family: 'Noto Serif SC', serif; font-size: 12px;
+    color: var(--ink); outline: none; cursor: pointer;
+  }
+  .roster-force:focus { border-color: var(--vermillion); }
+  .roster-item-force {
+    font-size: 10px; color: var(--ink-soft); opacity: 0.6;
+    margin-top: 1px;
+  }
+  .roster-filters { padding: 6px 18px 8px; border-bottom: 1px solid var(--paper-line); display: flex; gap: 4px; flex-wrap: wrap; }
+  .filter-chip {
+    font-size: 10px; letter-spacing: 0.1em; padding: 3px 8px;
+    border: 1px solid var(--paper-line); background: transparent;
+    color: var(--ink); cursor: pointer; opacity: 0.65; font-family: inherit;
+  }
+  .filter-chip.active { background: var(--ink); color: var(--paper); border-color: var(--ink); opacity: 1; }
+  .roster-list { flex: 1; overflow-y: auto; }
+  .roster-item {
+    padding: 8px 18px; cursor: pointer;
+    border-left: 3px solid transparent; transition: background 0.1s;
+    display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  }
+  .roster-item:hover { background: rgba(176, 48, 48, 0.05); }
+  .roster-item.active { background: var(--paper); border-left-color: var(--vermillion); }
+  .roster-item-name { font-size: 13px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .roster-item-name .nick { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 11px; opacity: 0.55; margin-left: 4px; }
+  .roster-item-meta { font-family: 'JetBrains Mono', monospace; font-size: 10px; opacity: 0.45; }
+  .roster-item.dirty .roster-item-name::after { content: '●'; color: var(--vermillion); margin-left: 6px; font-size: 9px; }
+  .roster-item.dead .roster-item-name { opacity: 0.4; text-decoration: line-through; }
+  .roster-item.player { background: rgba(176, 48, 48, 0.06); }
+  .roster-item.player .roster-item-name::before { content: '★ '; color: var(--vermillion); }
+
+  .detail { overflow-y: auto; padding: 0; }
+  .detail-empty {
+    height: 100%; display: flex; align-items: center; justify-content: center;
+    font-family: 'Cormorant Garamond', serif; font-style: italic;
+    opacity: 0.4; font-size: 18px;
+  }
+  .detail-head {
+    padding: 22px 28px 18px; border-bottom: 1px solid var(--paper-line);
+    background: linear-gradient(180deg, rgba(255,255,255,0.3), transparent);
+    display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap;
+  }
+  .detail-name { font-size: 26px; font-weight: 600; letter-spacing: 0.1em; }
+  .detail-nick { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 16px; opacity: 0.6; }
+  .detail-tags { display: flex; gap: 6px; margin-left: 8px; }
+  .detail-tag { font-size: 10px; letter-spacing: 0.1em; padding: 2px 8px; border: 1px solid var(--paper-line); color: var(--ink-soft); }
+  .detail-tag.player { background: var(--vermillion); color: var(--paper); border-color: var(--vermillion); }
+  .detail-tag.dead { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .detail-meta { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; opacity: 0.5; }
+
+  .tabs {
+    display: flex; gap: 0; padding: 0 28px;
+    border-bottom: 1px solid var(--paper-line);
+    background: rgba(232, 220, 192, 0.3);
+    position: sticky; top: 0; z-index: 5;
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 11px 18px; font-size: 13px; letter-spacing: 0.15em;
+    cursor: pointer; border-bottom: 2px solid transparent;
+    margin-bottom: -1px; color: var(--ink-soft); white-space: nowrap;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--vermillion); border-bottom-color: var(--vermillion); font-weight: 600; }
+  .tab-num { font-family: 'JetBrains Mono', monospace; font-size: 10px; opacity: 0.55; margin-left: 4px; }
+  .tab-panel { padding: 22px 28px 80px; display: none; }
+  .tab-panel.active { display: block; }
+
+  .section { margin-bottom: 26px; }
+  .section-head {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 12px; padding-bottom: 7px;
+    border-bottom: 1px solid var(--paper-line);
+  }
+  .section-mark { width: 4px; height: 16px; background: var(--vermillion); }
+  .section-title { font-size: 14px; font-weight: 600; letter-spacing: 0.2em; }
+  .section-title-en { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 11px; opacity: 0.5; margin-left: auto; }
+  .section-actions { display: flex; gap: 6px; margin-left: auto; }
+  .section-head .section-actions { margin-left: auto; }
+  .section-head .section-actions + .section-title-en { margin-left: 0; }
+
+  /* 属性编辑：一排两种，每种含 label / base / +10 / max / +10 */
+  .attr-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px 24px;
+    margin-bottom: 6px;
+  }
+  .attr-pair {
+    display: grid;
+    grid-template-columns: minmax(64px, auto) 70px 22px 70px 22px;
+    gap: 0 6px; align-items: center;
+  }
+  .attr-pair.head > div {
+    font-size: 10px; letter-spacing: 0.1em; color: var(--ink-soft);
+    text-align: center; padding-bottom: 4px;
+  }
+  .attr-pair.head > div:first-child { text-align: left; }
+  .attr-pair .attr-label { font-size: 13px; font-weight: 500; }
+  .attr-pair input[type="number"] {
+    border: none; background: transparent;
+    border-bottom: 1px solid var(--paper-line);
+    padding: 4px 6px; text-align: right;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    color: var(--ink); outline: none; width: 100%;
+  }
+  .attr-pair input[type="number"]:hover { background: rgba(255,255,255,0.4); }
+  .attr-pair input[type="number"]:focus { border-bottom-color: var(--vermillion); background: rgba(255,255,255,0.6); }
+  .attr-pair input.changed { color: var(--vermillion); font-weight: 600; }
+  .attr-pair .plus10 {
+    border: 1px solid var(--paper-line);
+    background: transparent; color: var(--ink-soft);
+    font-size: 10px; font-family: inherit;
+    padding: 1px 3px; cursor: pointer; height: 18px; line-height: 1;
+    border-radius: 2px;
+  }
+  .attr-pair .plus10:hover { border-color: var(--vermillion); color: var(--vermillion); }
+
+  .quick-fill {
+    display: flex; gap: 6px; margin-bottom: 12px;
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.3);
+    border: 1px dashed var(--paper-line);
+    align-items: center; flex-wrap: wrap;
+  }
+  .quick-fill .qf-label { font-size: 11px; color: var(--ink-soft); letter-spacing: 0.1em; }
+  .quick-fill input {
+    width: 70px; border: 1px solid var(--paper-line);
+    background: transparent; padding: 3px 6px; text-align: right;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--ink); outline: none;
+  }
+  .quick-fill input:focus { border-color: var(--vermillion); }
+
+  .info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px 22px; }
+  .info-row { display: flex; align-items: center; padding: 5px 0; border-bottom: 1px dotted var(--paper-line); gap: 10px; }
+  .info-label { flex: 0 0 90px; font-size: 12px; color: var(--ink-soft); }
+  .info-input {
+    flex: 1; border: none; background: transparent;
+    border-bottom: 1px solid transparent; padding: 3px 5px;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    color: var(--ink); outline: none; min-width: 0;
+  }
+  .info-input:hover { border-bottom-color: var(--paper-line); }
+  .info-input:focus { border-bottom-color: var(--vermillion); background: rgba(255,255,255,0.4); }
+  .info-input.changed { color: var(--vermillion); font-weight: 600; }
+  .info-input[type="number"] { text-align: right; }
+  select.info-input { cursor: pointer; }
+
+  .item-toolbar { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
+  .item-toolbar input[type="text"] {
+    border: 1px solid var(--paper-line); background: transparent;
+    padding: 5px 10px; font-family: 'Noto Serif SC', serif;
+    font-size: 12px; color: var(--ink); outline: none; width: 180px;
+  }
+  .item-toolbar input[type="text"]:focus { border-color: var(--vermillion); }
+  .item-toolbar select {
+    border: 1px solid var(--paper-line); background: transparent;
+    padding: 5px 8px; font-family: inherit; font-size: 12px;
+    color: var(--ink); outline: none; cursor: pointer;
+  }
+  .count-badge { font-family: 'JetBrains Mono', monospace; font-size: 11px; opacity: 0.55; margin-left: auto; }
+
+  .item-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .item-table th {
+    text-align: left; padding: 6px 8px; font-weight: 600;
+    letter-spacing: 0.1em; font-size: 11px; color: var(--ink-soft);
+    border-bottom: 1px solid var(--paper-line);
+    background: rgba(232, 220, 192, 0.4); position: sticky; top: 0;
+  }
+  .item-table td { padding: 5px 8px; border-bottom: 1px dotted var(--paper-line); }
+  .item-table tr:hover td { background: rgba(255,255,255,0.4); }
+  .item-table .col-id { font-family: 'JetBrains Mono', monospace; opacity: 0.5; width: 50px; }
+  .item-table .col-name { font-weight: 500; }
+  .item-table .col-type { font-size: 10px; letter-spacing: 0.1em; color: var(--ink-soft); }
+  .item-table .col-rare { text-align: center; width: 40px; }
+  .item-table .col-num { width: 70px; }
+  .item-table .col-num input {
+    width: 100%; border: none; background: transparent;
+    border-bottom: 1px solid transparent; padding: 2px 4px; text-align: right;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--ink); outline: none;
+  }
+  .item-table .col-num input:hover { border-bottom-color: var(--paper-line); }
+  .item-table .col-num input:focus { border-bottom-color: var(--vermillion); background: rgba(255,255,255,0.5); }
+  .item-table .col-num input.changed { color: var(--vermillion); font-weight: 600; }
+  .item-table .col-act { width: 60px; text-align: right; }
+  .item-table .col-equip { width: 36px; text-align: center; }
+  .icon-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--vermillion); opacity: 0.6; padding: 0 4px; font-size: 13px;
+  }
+  .icon-btn:hover { opacity: 1; }
+
+  /* 物品稀有度 rareLv 0-5: 灰/绿/蓝/紫/金/红 */
+  .rare-0 { color: #6b6258; }
+  .rare-1 { color: #3a8c3a; }
+  .rare-2 { color: #3a6a9c; }
+  .rare-3 { color: #8a3aa8; }
+  .rare-4 { color: #c9a227; }
+  .rare-5 { color: #b03030; }
+  /* rareLv 小圆点：跟名字颜色独立显示稀有度 */
+  .rare-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-left: 6px;
+    vertical-align: middle;
+    flex-shrink: 0;
+  }
+  .rare-dot.r-0 { background: #6b6258; }
+  .rare-dot.r-1 { background: #3a8c3a; }
+  .rare-dot.r-2 { background: #3a6a9c; }
+  .rare-dot.r-3 { background: #8a3aa8; }
+  .rare-dot.r-4 { background: #c9a227; }
+  .rare-dot.r-5 { background: #b03030; }
+  /* 武功等级 l 0-5 用 kfl-* 类（与物品稀有度独立） */
+  .kfl-0 { color: #6b6258; }
+  .kfl-1 { color: #3a8c3a; }
+  .kfl-2 { color: #3a6a9c; }
+  .kfl-3 { color: #8a3aa8; }
+  .kfl-4 { color: #c9a227; }
+  .kfl-5 { color: #b03030; }
+  .equiped-mark { color: var(--vermillion); font-weight: 600; }
+
+  .kungfu-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px 14px; }
+  .kungfu-card {
+    border: 1px solid var(--paper-line); background: rgba(255,255,255,0.3);
+    padding: 8px 10px; display: flex; align-items: center; gap: 10px;
+  }
+  .kungfu-id { font-family: 'JetBrains Mono', monospace; font-size: 10px; opacity: 0.45; width: 36px; }
+  .kungfu-name { flex: 1; font-size: 13px; }
+  .kungfu-lv { display: flex; align-items: center; gap: 4px; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .kungfu-lv input {
+    width: 42px; border: none; background: transparent;
+    border-bottom: 1px solid var(--paper-line); padding: 2px 4px;
+    text-align: right; font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--ink); outline: none;
+  }
+  .kungfu-lv input:focus { border-bottom-color: var(--vermillion); background: rgba(255,255,255,0.5); }
+  .kungfu-lv input.changed { color: var(--vermillion); font-weight: 600; }
+  .kungfu-card.equiped { border-color: var(--vermillion); background: rgba(176, 48, 48, 0.04); }
+
+  .rel-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 12px; }
+  .rel-item {
+    padding: 6px 10px; border: 1px solid var(--paper-line);
+    background: rgba(255,255,255,0.3); font-size: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .rel-item .rid { font-family: 'JetBrains Mono', monospace; font-size: 10px; opacity: 0.45; }
+  .rel-empty { color: var(--ink-soft); font-size: 12px; opacity: 0.55; font-style: italic; }
+
+  .slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 14px; }
+  .slot-card { border: 1px solid var(--paper-line); background: rgba(255,255,255,0.3); padding: 10px 12px; }
+  .slot-head {
+    font-size: 11px; color: var(--ink-soft); letter-spacing: 0.15em;
+    margin-bottom: 6px; display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .slot-head .max { font-family: 'JetBrains Mono', monospace; font-size: 10px; opacity: 0.5; }
+  .slot-content { font-size: 13px; line-height: 1.5; }
+  .slot-content .slot-empty { opacity: 0.4; font-style: italic; font-size: 12px; }
+
+  .toast {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--ink); color: var(--paper);
+    padding: 10px 22px; font-size: 12px; letter-spacing: 0.1em;
+    transition: transform 0.3s; z-index: 100;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.error { background: var(--vermillion); }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--paper-line); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ink-soft); }
+
+  .loading {
+    position: fixed; inset: 0; background: rgba(244, 234, 213, 0.92);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200; flex-direction: column; gap: 16px;
+  }
+  .loading.hidden { display: none; }
+  .loading-text { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 18px; letter-spacing: 0.2em; }
+  .loading-spinner { width: 40px; height: 40px; border: 2px solid var(--paper-line); border-top-color: var(--vermillion); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(26, 20, 16, 0.5);
+    display: none; align-items: center; justify-content: center; z-index: 150;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    width: min(720px, 92vw); max-height: 80vh;
+    background: var(--paper); border: 1px solid var(--ink);
+    box-shadow: 8px 8px 0 var(--shadow);
+    display: flex; flex-direction: column;
+  }
+  .modal-head { padding: 12px 18px; border-bottom: 1px solid var(--paper-line); display: flex; justify-content: space-between; align-items: center; }
+  .modal-title { font-size: 13px; font-weight: 600; letter-spacing: 0.2em; }
+  .modal-body { flex: 1; overflow: auto; padding: 14px 18px; }
+  .modal-body textarea {
+    width: 100%; min-height: 320px; border: 1px solid var(--paper-line);
+    background: rgba(255,255,255,0.4); padding: 10px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--ink); outline: none; resize: vertical; line-height: 1.5;
+  }
+  .modal-body textarea:focus { border-color: var(--vermillion); }
+  .modal-foot { padding: 10px 18px; border-top: 1px solid var(--paper-line); display: flex; justify-content: flex-end; gap: 8px; }
+  .modal-error { color: var(--vermillion); font-size: 12px; margin-right: auto; align-self: center; }
+
+  /* ===== 区域模式 ===== */
+  .area-body { display: flex; gap: 28px; padding: 18px 28px 28px; align-items: flex-start; flex-wrap: wrap; }
+  .area-mapwrap { --tile: 38px; flex: 0 0 auto; }
+  .area-grid { display: grid; gap: 2px; padding: 10px; background: #5d7a74; border: 1px solid var(--ink-soft); box-shadow: 0 2px 10px var(--shadow); width: max-content; }
+  .area-orient { font-size: 11px; opacity: 0.5; margin-top: 6px; letter-spacing: 0.1em; }
+  .tile { width: var(--tile); height: var(--tile); display: flex; align-items: center; justify-content: center;
+          font-size: 11px; line-height: 1; user-select: none; box-sizing: border-box; position: relative; color: var(--ink); }
+  .tile.k-void { background: transparent; }
+  .tile.k-wall { background: #8f8a80; }
+  .tile.k-gate { background: #2f2a26; color: #e8dcc0; font-weight: 600; }
+  .tile.k-road { background: #cfc9bb; }
+  .tile.k-hall { background: var(--vermillion); color: var(--paper); font-weight: 600; }
+  .tile.k-empty { background: #fbf7ee; }
+  .tile.k-ruin { background: #d9c79a; color: #6b5a33; }
+  .tile.k-building { background: #7d9a7d; color: #fff; }
+  .tile.clickable { cursor: pointer; }
+  .tile.clickable:hover { outline: 2px solid var(--vermillion); outline-offset: -2px; z-index: 1; }
+  .tile.k-void.clickable:hover { background: rgba(251,247,238,0.35); }
+  .tile.changed { background: #fffdf6; color: var(--vermillion); font-weight: 700; box-shadow: inset 0 0 0 2px var(--vermillion); }
+  .tile.pushed { background: #8f8a80; box-shadow: inset 0 0 0 2px #f4ead5; opacity: 0.85; }
+  .area-side { flex: 1 1 260px; min-width: 240px; max-width: 360px; }
+  .area-stat { border: 1px solid var(--paper-line); padding: 12px 14px; margin-bottom: 14px; background: var(--paper); }
+  .area-stat-num { font-size: 26px; font-family: 'Cormorant Garamond', serif; }
+  .area-stat-num b { color: var(--vermillion); }
+  .area-stat-label { font-size: 12px; opacity: 0.7; margin-top: 2px; }
+  .area-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  .area-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 12px; margin-bottom: 14px; }
+  .area-legend div { display: flex; align-items: center; gap: 6px; }
+  .area-legend .tile { --tile: 16px; width: 16px; height: 16px; flex: 0 0 16px; border: 1px solid rgba(0,0,0,0.12); }
+  .area-legend .tile.k-void { background: #5d7a74; }
+  .area-note { font-size: 12px; line-height: 1.8; opacity: 0.75; border-top: 1px solid var(--paper-line); padding-top: 10px; }
+  @media (max-width: 900px) { .area-mapwrap { --tile: 26px; } .area-body { padding: 12px; } }
+  .tile.bedited { box-shadow: inset 0 0 0 2px #2f6fb0; }
+  .tile.k-building.bedited { background: #6f8fb3; }
+  .tile.picked { outline: 3px solid #2f6fb0; outline-offset: -3px; z-index: 2; }
+  .area-legend .tile.bedited { background: #6f8fb3; }
+  .tile-panel { border: 1px solid var(--paper-line); padding: 10px 12px; margin-bottom: 14px; font-size: 12px; background: rgba(255,255,255,0.35); }
+  .tile-panel .tp-head { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 8px; }
+  .tile-panel .tp-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+  .tile-panel .tp-row label { width: 56px; flex: 0 0 56px; opacity: 0.75; }
+  .tile-panel select, .tile-panel input[type=number] { flex: 1; min-width: 0; padding: 2px 6px; border: 1px solid var(--paper-line); background: transparent; font-family: inherit; font-size: 12px; color: var(--ink); }
+  .tile-panel .tp-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .tile-panel .tp-dim, .tile-panel .tp-note { opacity: 0.65; }
+  .tile-panel .tp-note { margin-top: 6px; line-height: 1.6; }
+
+  /* ===== 文件夹 / 槽位模式 ===== */
+  .mode-switch { display: flex; border: 1px solid var(--ink); margin-right: 10px; }
+  .mode-switch.hidden { display: none; }
+  .mode-switch button { background: transparent; border: none; padding: 6px 16px; font-family: inherit; font-size: 13px; letter-spacing: 0.2em; cursor: pointer; color: var(--ink); }
+  .mode-switch button + button { border-left: 1px solid var(--ink); }
+  .mode-switch button.active { background: var(--ink); color: var(--paper); }
+  .mode-switch button.dirty::after { content: '●'; color: var(--vermillion); margin-left: 4px; font-size: 9px; }
+  .btn.hidden { display: none; }
+  .drop-pick { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .sv-picker { position: fixed; inset: 60px 0 0 0; overflow-y: auto; padding: 32px 24px; }
+  .sv-picker.hidden { display: none; }
+  .sv-wrap { max-width: 760px; margin: 0 auto; }
+  .sv-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 18px; }
+  .sv-head .t { font-size: 20px; letter-spacing: 0.3em; }
+  .sv-head .t .ornament { color: var(--vermillion); margin-right: 8px; }
+  .sv-head .p { font-family: 'JetBrains Mono', monospace; font-size: 11px; opacity: 0.55; flex: 1; }
+  .sv-card { display: flex; align-items: center; gap: 16px; padding: 14px 18px; border: 1px solid var(--paper-line); background: var(--paper); margin-bottom: 8px; cursor: pointer; transition: border-color .15s, transform .15s; }
+  .sv-card:hover { border-color: var(--vermillion); transform: translateX(3px); }
+  .sv-no { font-family: 'Cormorant Garamond', serif; font-size: 28px; width: 34px; text-align: center; color: var(--vermillion); }
+  .sv-main { flex: 1; min-width: 0; }
+  .sv-name { font-size: 15px; font-weight: 600; }
+  .sv-name span { font-weight: 400; font-size: 12px; opacity: 0.6; margin-left: 10px; }
+  .sv-sub { font-size: 12px; opacity: 0.7; margin-top: 3px; }
+  .sv-time { font-family: 'JetBrains Mono', monospace; font-size: 11px; opacity: 0.55; }
+  /* exe 模式：存档由 exe 提供，不需要拖拽 / 选文件夹 */
+  body.host-mode #dropzone, body.host-mode #btnSlotBack { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-cn">龙胤<span class="accent">立志传</span> · 修改器</div>
+    <div class="brand-en">Save Editor</div>
+  </div>
+  <div class="topbar-actions">
+    <div class="mode-switch hidden" id="modeSwitch"><button data-mode="hero">人物</button><button data-mode="area">区域</button></div>
+    <span class="file-info" id="fileInfo"></span>
+    <button class="btn btn-ghost hidden" id="btnSlots" title="回到存档列表">换存档</button>
+    <button class="btn btn-ghost" id="btnReload" title="从磁盘重新读取原文件，丢弃所有未保存修改" disabled>重新载入</button>
+    <button class="btn btn-primary" id="btnSave" title="载入文件后显示保存方式" disabled>保存存档</button>
+  </div>
+</div>
+
+<div class="dropzone" id="dropzone">
+  <div class="drop-card">
+    <div class="drop-seal">改</div>
+    <div class="drop-title">拖入 Save 存档文件夹</div>
+    <div class="drop-sub">drag &amp; drop your save file</div>
+    <div class="drop-hint">可以拖整个 Save 文件夹、某个 SaveSlot 文件夹，或单个 Hero / Save 文件<br>人物改 Hero · 城市驻地扩建改 Save · 改哪个写哪个，写前自动备份<br>本地解析 · 文件不会上传 · 需要 Edge 或 Chrome</div>
+    <div class="drop-pick">
+      <button class="btn btn-primary" id="btnPickDir">选择存档文件夹</button>
+      <button class="btn" id="btnPick">选择单个文件</button>
+      <input type="file" id="filePick" hidden>
+    </div>
+  </div>
+</div>
+
+<div class="sv-picker hidden" id="slotPicker">
+  <div class="sv-wrap">
+    <div class="sv-head"><div class="t"><span class="ornament">❖</span>选择存档</div><div class="p" id="slotRootName"></div>
+      <button class="btn btn-ghost btn-mini" id="btnSlotBack">返回</button></div>
+    <div id="slotList"></div>
+  </div>
+</div>
+
+<div class="workspace hidden" id="workspace">
+  <aside class="roster">
+    <div class="roster-head">
+      <div class="roster-title"><span class="ornament">❖</span>人物名册</div>
+      <div class="roster-count" id="rosterCount">—</div>
+    </div>
+    <div class="roster-search">
+      <input type="text" id="searchInput" placeholder="搜索姓名 / 称号 / ID">
+    </div>
+    <div class="roster-force-wrap">
+      <select id="forceFilter" class="roster-force"></select>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <select id="sexFilter" class="roster-force" style="flex:1">
+          <option value="">性别不限</option>
+          <option value="m">男</option>
+          <option value="f">女</option>
+        </select>
+        <select id="talentFilter" class="roster-force" style="flex:1">
+          <option value="">天赋不限</option>
+          <option value="4">天赋 ≥4</option>
+          <option value="3">天赋 ≥3</option>
+          <option value="2">天赋 ≥2</option>
+          <option value="1">天赋 ≥1</option>
+          <option value="e4">天赋 =4</option>
+          <option value="e3">天赋 =3</option>
+          <option value="e0">天赋 =0</option>
+        </select>
+      </div>
+    </div>
+    <div class="roster-filters" id="rosterFilters">
+      <button class="filter-chip active" data-filter="all">全部</button>
+      <button class="filter-chip" data-filter="alive">在世</button>
+      <button class="filter-chip" data-filter="player">主角</button>
+      <button class="filter-chip" data-filter="dirty">已修改</button>
+      <button class="filter-chip active" id="chipHideNoArea" title="隐藏所在地为 -1（游戏中遇不到）的人物">隐藏地点不明</button>
+    </div>
+    <div class="roster-list" id="rosterList"></div>
+  </aside>
+
+  <main class="detail" id="detail">
+    <div class="detail-empty">从左侧选择一位人物</div>
+  </main>
+</div>
+
+<div class="workspace hidden" id="areaWorkspace">
+  <aside class="roster">
+    <div class="roster-head">
+      <div class="roster-title"><span class="ornament">❖</span>区域名册</div>
+      <div class="roster-count" id="areaCount">—</div>
+    </div>
+    <div class="roster-search">
+      <input type="text" id="areaSearch" placeholder="搜索区域名 / 门派">
+    </div>
+    <div class="roster-filters" id="areaFilters">
+      <button class="filter-chip active" data-afilter="all">全部</button>
+      <button class="filter-chip" data-afilter="0">城市</button>
+      <button class="filter-chip" data-afilter="2">门派</button>
+      <button class="filter-chip" data-afilter="1">村镇</button>
+    </div>
+    <div class="roster-list" id="areaList"></div>
+  </aside>
+  <main class="detail" id="areaDetail">
+    <div class="detail-empty">从左侧选择一个区域</div>
+  </main>
+</div>
+
+<div class="loading hidden" id="loading">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loadingText">parsing...</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="modalTitle">编辑 JSON</div>
+      <button class="btn btn-ghost btn-mini" id="modalClose">×</button>
+    </div>
+    <div class="modal-body">
+      <textarea id="modalText" spellcheck="false"></textarea>
+    </div>
+    <div class="modal-foot">
+      <span class="modal-error" id="modalError"></span>
+      <button class="btn btn-ghost" id="modalCancel">取消</button>
+      <button class="btn btn-primary" id="modalSave">应用</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="tagModal">
+  <div class="modal" style="width:min(640px,92vw)">
+    <div class="modal-head">
+      <div class="modal-title">选择天赋</div>
+      <button class="btn btn-ghost btn-mini" id="tagModalClose">×</button>
+    </div>
+    <div style="padding:10px 18px;border-bottom:1px solid var(--paper-line);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" id="tagSearch" placeholder="搜索名称 / 编号" style="flex:1;min-width:160px;border:1px solid var(--paper-line);background:transparent;padding:5px 10px;font-family:inherit;font-size:12px;color:var(--ink);outline:none">
+      <select id="tagCatFilter" style="border:1px solid var(--paper-line);background:transparent;padding:5px 8px;font-family:inherit;font-size:12px;color:var(--ink);outline:none;cursor:pointer">
+        <option value="">全部大类</option>
+      </select>
+      <label style="font-size:11px;color:var(--ink-soft);display:flex;align-items:center;gap:4px;cursor:pointer">
+        <input type="checkbox" id="tagHideExisting" checked> 隐藏已有
+      </label>
+    </div>
+    <div class="modal-body" style="padding:8px 12px;max-height:420px">
+      <div id="tagList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:4px"></div>
+    </div>
+    <div class="modal-foot">
+      <span style="font-size:11px;color:var(--ink-soft);margin-right:auto">点击天赋直接添加。leftTime 默认 -1 (永久)</span>
+      <button class="btn btn-ghost" id="tagModalCancel">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="attrModal">
+  <div class="modal" style="width:min(620px,92vw)">
+    <div class="modal-head">
+      <div class="modal-title" id="attrModalTitle">编辑装备属性</div>
+      <button class="btn btn-ghost btn-mini" id="attrModalClose">×</button>
+    </div>
+    <div class="modal-body" style="padding:8px 18px;max-height:60vh">
+      <div id="attrModalBody"></div>
+    </div>
+    <div class="modal-foot">
+      <span style="font-size:11px;color:var(--ink-soft);margin-right:auto">百分比类词条：输入显示值（如 12 表示 12%），存档自动转 0.12</span>
+      <button class="btn btn-primary" id="attrModalDone">完成</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="attrPickModal">
+  <div class="modal" style="width:min(640px,92vw)">
+    <div class="modal-head">
+      <div class="modal-title">选择词条</div>
+      <button class="btn btn-ghost btn-mini" id="attrPickClose">×</button>
+    </div>
+    <div style="padding:10px 18px;border-bottom:1px solid var(--paper-line);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" id="attrPickSearch" placeholder="搜索词条名 / ID" style="flex:1;min-width:160px;border:1px solid var(--paper-line);background:transparent;padding:5px 10px;font-family:inherit;font-size:12px;color:var(--ink);outline:none">
+      <label style="font-size:11px;color:var(--ink-soft);display:flex;align-items:center;gap:4px;cursor:pointer">
+        <input type="checkbox" id="attrPickHideExisting" checked> 隐藏已有
+      </label>
+    </div>
+    <div class="modal-body" style="padding:8px 12px;max-height:420px">
+      <div id="attrPickList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:4px"></div>
+    </div>
+    <div class="modal-foot">
+      <span style="font-size:11px;color:var(--ink-soft);margin-right:auto">点击词条添加，默认数值 0</span>
+      <button class="btn btn-ghost" id="attrPickCancel">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// === 游戏数据字典 (来源: 龙胤立志传数据资料 by 電玩狂熱愛好者) ===
+const GAME_DICT = __GAME_DICT__;
+
+const KF_DICT = GAME_DICT.KF;     // skillID -> {n, c, l, f}
+const FORCE_DICT = GAME_DICT.FORCE; // forceID -> name
+const AREA_DICT = GAME_DICT.AREA;   // areaID -> name
+const HERO_DICT = GAME_DICT.HERO;   // heroID(spe) -> {n, k?}
+const TAG_DICT = GAME_DICT.TAG;
+const ATTR_DICT = GAME_DICT.ATTR;
+
+function lookupSkill(id) {
+  const e = KF_DICT[id];
+  if (!e) return { n: 'skill ' + id, c: '', l: 0, f: '' };
+  return e;
+}
+function lookupForce(id) {
+  if (id === undefined || id === null) return '';
+  return FORCE_DICT[id] || '';
+}
+function lookupArea(id) {
+  if (id === undefined || id === null || id === -1) return '';
+  return AREA_DICT[id] || '';
+}
+function lookupHero(id) {
+  if (id === undefined || id === null || id === -1) return null;
+  return HERO_DICT[id] || null;
+}
+function lookupTag(id) {
+  const e = TAG_DICT[id];
+  if (!e) return '';
+  return e.n || '';
+}
+function lookupTagFull(id) {
+  return TAG_DICT[id] || null;
+}
+// 装备词条反查
+function lookupAttr(id) {
+  return ATTR_DICT[id] || null;
+}
+// 格式化数值显示：百分比类型 *100 加 %，否则按原始数值
+function formatAttrValue(id, val) {
+  const e = ATTR_DICT[id];
+  if (!e) return String(val);
+  if (e.p === 1) {
+    const v = val * 100;
+    return (Math.abs(v) < 0.001 ? 0 : (Math.round(v * 100) / 100)) + '%';
+  }
+  // 对小数做轻微取整（0.049999997 这种浮点误差）
+  if (typeof val === 'number' && !Number.isInteger(val)) {
+    return String(Math.round(val * 1000) / 1000);
+  }
+  return String(val);
+}
+
+// 在当前存档里按 heroID 找人物（rawData 是 idx 数组，但 heroID 不一定等于 idx）
+function lookupHeroInSave(heroID) {
+  if (heroID === undefined || heroID === null || heroID === -1) return null;
+  if (!state.rawData) return null;
+  // 先尝试 idx == heroID
+  if (state.rawData[heroID] && state.rawData[heroID].heroID === heroID) {
+    return state.rawData[heroID];
+  }
+  // fallback: 全表扫描 + 缓存
+  if (!state.heroIdMap) {
+    state.heroIdMap = new Map();
+    state.rawData.forEach(h => { if (h && h.heroID !== undefined) state.heroIdMap.set(h.heroID, h); });
+  }
+  return state.heroIdMap.get(heroID) || null;
+}
+// 综合显示：优先存档里的实时姓名，回退到字典
+function describeHero(heroID) {
+  const h = lookupHeroInSave(heroID);
+  if (h) {
+    let s = h.heroName || '(无名)';
+    if (h.heroNickName) s += ' · ' + h.heroNickName;
+    if (h.dead) s += ' [亡]';
+    return s;
+  }
+  const e = HERO_DICT[heroID];
+  if (e) return e.n + (e.k ? ' · ' + e.k : '');
+  return '';
+}
+// 武功等级配色 (l: 0=灰 1=绿 2=蓝 3=紫 4=橙 5=红)
+const KF_LV_NAME = ['基础', '进阶', '上乘', '秘传', '顶级', '绝世'];
+
+const ATTR_NAMES = ['力道', '灵巧', '智力', '意志', '体质', '经脉'];
+const FIGHT_NAMES = ['内家', '轻功', '绝技', '拳掌', '御剑', '耍刀', '长兵', '奇门', '射术'];
+const LIVING_NAMES = ['医术', '毒术', '学识', '口才', '采伐', '木植', '锻造', '炼药', '烹饪'];
+const ITEM_TYPES = { 0: '装备', 1: '药品', 2: '食物', 3: '秘籍', 4: '珍宝', 5: '材料', 6: '坐骑' };
+const EQUIP_SUBTYPES = { 0: '武器', 1: '甲', 2: '盔', 3: '靴', 4: '饰物' };
+const EQUIP_SLOTS = [
+  { key: 'weapon',     label: '兵器', recordKey: 'weaponSaveRecord',     maxKey: 'maxWeaponCount' },
+  { key: 'armor',      label: '甲胄', recordKey: 'armorSaveRecord',      maxKey: 'maxArmorCount' },
+  { key: 'helmet',     label: '头盔', recordKey: 'helmetSaveRecord',     maxKey: 'maxHelmetCount' },
+  { key: 'shoes',      label: '靴履', recordKey: 'shoesSaveRecord',      maxKey: 'maxShoesCount' },
+  { key: 'decoration', label: '饰物', recordKey: 'decorationSaveRecord', maxKey: 'maxDecorationCount' },
+];
+
+const BASIC_FIELDS = [
+  { key: 'heroName',       label: '姓名',         type: 'text' },
+  { key: 'heroFamilyName', label: '姓',           type: 'text' },
+  { key: 'heroNickName',   label: '称号',         type: 'text' },
+  { key: 'isFemale',       label: '性别',         type: 'enum', options: [{v:false,l:'男'},{v:true,l:'女'}] },
+  { key: 'age',            label: '年龄',         type: 'number' },
+  { key: 'generation',     label: '辈分',         type: 'number' },
+  { key: 'belongForceID',  label: '所属门派',     type: 'dict', dict: FORCE_DICT },
+  { key: 'atAreaID',       label: '所在地点',     type: 'dict', dict: AREA_DICT },
+  { key: 'heroForceLv',    label: '门派职位/声望', type: 'forcelv' },
+  { key: 'governLv',       label: '统御等级',     type: 'number' },
+  { key: 'fame',           label: '声望',         type: 'number' },
+  { key: 'badFame',        label: '恶名',         type: 'number' },
+  { key: 'loyal',          label: '忠诚',         type: 'number' },
+  { key: 'favor',          label: '好感度',       type: 'number' },
+  { key: 'evil',           label: '邪',           type: 'number' },
+  { key: 'chaos',          label: '乱',           type: 'number' },
+  { key: 'nature',         label: '性格ID',       type: 'number' },
+  { key: 'talent',         label: '天赋',         type: 'number' },
+  { key: 'salary',         label: '俸禄',         type: 'number' },
+  { key: 'population',     label: '人望',         type: 'number' },
+  { key: 'fightScore',     label: '战力评分',     type: 'number' },
+  { key: 'dead',           label: '已死亡',       type: 'enum', options: [{v:false,l:'否'},{v:true,l:'是'}] },
+  { key: 'hide',           label: '隐藏',         type: 'enum', options: [{v:false,l:'否'},{v:true,l:'是'}] },
+  { key: 'recruitAble',    label: '可招募',       type: 'enum', options: [{v:false,l:'否'},{v:true,l:'是'}] },
+  { key: 'loveAble',       label: '可结缘',       type: 'enum', options: [{v:false,l:'否'},{v:true,l:'是'}] },
+  { key: 'speHero',        label: '特殊人物',     type: 'enum', options: [{v:false,l:'否'},{v:true,l:'是'}] },
+];
+
+const DERIVED_KEYS = new Set(['maxhp','realMaxHp','maxPower','realMaxPower','maxMana','realMaxMana','armor','fightScore']);
+const COMBAT_FIELDS = [
+  { key: 'hp',             label: '当前气血' },
+  { key: 'maxhp',          label: '气血上限' },
+  { key: 'realMaxHp',      label: '真实气血上限' },
+  { key: 'power',          label: '当前体力' },
+  { key: 'maxPower',       label: '体力上限' },
+  { key: 'realMaxPower',   label: '真实体力上限' },
+  { key: 'mana',           label: '当前内力' },
+  { key: 'maxMana',        label: '内力上限' },
+  { key: 'realMaxMana',    label: '真实内力上限' },
+  { key: 'armor',          label: '护甲' },
+  { key: 'externalInjury', label: '外伤' },
+  { key: 'internalInjury', label: '内伤' },
+  { key: 'poisonInjury',   label: '中毒' },
+];
+
+const RELATION_FIELDS = [
+  { key: 'Teacher',   label: '师父',  single: true },
+  { key: 'Lover',     label: '伴侣',  single: true },
+  { key: 'Students',  label: '弟子' },
+  { key: 'PreLovers', label: '旧情' },
+  { key: 'Relatives', label: '亲属' },
+  { key: 'Brothers',  label: '结义' },
+  { key: 'Friends',   label: '好友' },
+  { key: 'Haters',    label: '仇敌' },
+];
+
+const state = {
+  rawData: null,
+  selectedIdx: -1,
+  fileName: '',
+  fileSize: 0,
+  dirtyIdx: new Set(),
+  itemFilter: { type: '', search: '' },
+  storageFilter: { type: '', search: '' },
+  kungfuFilter: { cat: '', force: '', search: '' },
+  rosterFilter: 'all',
+  rosterForce: '',  // '' = 全部门派，否则是 forceID 字符串
+  rosterSex: '',    // '' / 'm' / 'f'
+  rosterTalent: '', // '' / '4'(>=4) / 'e3'(==3) 等
+  rosterHideNoArea: true, // 默认隐藏 atAreaID=-1
+  activeTab: 'basic',
+  modalCtx: null,
+};
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function formatBytes(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+  return (n/1024/1024).toFixed(2) + ' MB';
+}
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('error', !!isError);
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+function setLoading(show, text) {
+  const el = document.getElementById('loading');
+  if (show) {
+    document.getElementById('loadingText').textContent = text || 'parsing...';
+    el.classList.remove('hidden');
+  } else el.classList.add('hidden');
+}
+function updateSaveButton() {
+  const btn = document.getElementById('btnSave');
+  if (!btn) return;
+  if (state.slot) {
+    const f = slotDirtyFiles();
+    btn.textContent = '保存到存档';
+    btn.title = f.length ? '将写入 ' + state.slot.name + ' 的 ' + f.join('、') + '（写前自动备份）' : '没有改动';
+    document.querySelectorAll('#modeSwitch button').forEach(b => b.classList.toggle('dirty', b.dataset.mode === 'hero' ? state.dirtyIdx.size > 0 : areaDirty() > 0));
+    return;
+  }
+  if (state.fileHandle) {
+    btn.textContent = '覆盖源文件';
+    btn.title = `直接写回原文件: ${state.fileHandle.name}（点击后会再次确认）`;
+  } else {
+    btn.textContent = state.mode === 'area' ? '另存为 Save' : '另存为 Hero';
+    btn.title = '此浏览器/打开方式无法直接写回原文件，将弹出保存对话框选择位置';
+  }
+}
+function markDirty(idx) {
+  if (idx === undefined) idx = state.selectedIdx;
+  state.dirtyIdx.add(idx);
+  document.getElementById('btnSave').disabled = false;
+  updateSaveButton();
+  document.querySelectorAll('.roster-item').forEach(el => {
+    if (parseInt(el.dataset.heroIdx, 10) === idx) el.classList.add('dirty');
+  });
+}
+
+async function loadFile(file) {
+  state.fileName = file.name;
+  state.fileSize = file.size;
+  state.slot = null;
+  setLoading(true, `读取 ${file.name} ...`);
+  try {
+    const rd = await readSaveText(file);
+    const text = rd.text;
+    state.srcFmt = rd.fmt;
+    setLoading(true, 'parsing JSON...');
+    await new Promise(r => setTimeout(r, 30));
+    let data;
+    try { data = JSON.parse(text); }
+    catch (e) { throw new Error('JSON 解析失败：' + e.message); }
+    if (data && !Array.isArray(data) && Array.isArray(data.Areas) && Array.isArray(data.Forces)) {
+      await loadAreaMode(file, text, data);
+      return;
+    }
+    if (state.mode === 'area') leaveAreaMode();
+    if (!Array.isArray(data)) {
+      let arr = null;
+      if (data && typeof data === 'object') {
+        for (const k of Object.keys(data)) {
+          if (Array.isArray(data[k]) && data[k].length > 0 && data[k][0]?.heroName !== undefined) {
+            arr = data[k]; break;
+          }
+        }
+      }
+      if (!arr) throw new Error('未识别为人物数组（顶层应为 array，元素含 heroName）');
+      data = arr;
+    }
+    if (data.length === 0) throw new Error('人物列表为空');
+    // 容许 null 槽位存在，找第一个非 null 元素验证字段
+    const firstValid = data.find(h => h !== null);
+    if (!firstValid) throw new Error('数据中无有效人物（全为 null）');
+    if (firstValid.heroName === undefined && firstValid.heroID === undefined) {
+      throw new Error('数据格式与预期不符（缺少 heroName/heroID 字段）');
+    }
+    applyHeroData(file, data);
+  } catch (e) {
+    showToast(e.message, true);
+    console.error(e);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function saveFile() {
+  if (state.slot) return saveSlot();
+  if (!state.rawData && !area.data) return;
+  setLoading(true, '生成文件...');
+  await new Promise(r => setTimeout(r, 50));
+  // 保存成功后的收尾：清除修改标记
+  let areaOut = null;
+  const onSaved = (msg) => {
+    if (areaOut) afterAreaSaved(areaOut.text);
+    state.dirtyIdx.clear();
+    document.querySelectorAll('.roster-item.dirty').forEach(el => el.classList.remove('dirty'));
+    document.getElementById('btnSave').disabled = true;
+    updateSaveButton();
+    showToast(msg);
+  };
+  try {
+    if (state.mode === 'area') areaOut = buildAreaText();
+    const text = areaOut ? areaOut.text : JSON.stringify(state.rawData);
+    const suggestedName = state.fileName.replace(/\.(json|txt)$/i, '');
+
+    // 优选: 有 handle 直接原地覆盖
+    if (state.fileHandle) {
+      try {
+        // 部分浏览器需要重新请求写权限
+        if (state.fileHandle.queryPermission) {
+          const perm = await state.fileHandle.queryPermission({ mode: 'readwrite' });
+          if (perm !== 'granted') {
+            const req = await state.fileHandle.requestPermission({ mode: 'readwrite' });
+            if (req !== 'granted') throw new Error('未授予写入权限');
+          }
+        }
+        if (!confirm(`将直接覆盖源文件:\n${state.fileHandle.name}\n${areaOut ? `\n改动 ${areaOut.count} 个地块。请确认游戏已完全关闭（建议先关闭 Steam 云存档）。\n` : ''}\n请确认已备份。继续？`)) {
+          showToast('已取消');
+          return;
+        }
+        const writable = await state.fileHandle.createWritable();
+        await writable.write(await encodeSaveText(text, state.srcFmt));
+        await writable.close();
+        onSaved(`已覆盖源文件: ${state.fileHandle.name}`);
+        return;
+      } catch (e) {
+        console.warn('直接覆盖失败, 改用另存:', e);
+        showToast('覆盖失败：' + e.message + '，请选择保存位置', true);
+      }
+    }
+
+    // 次选: 弹出保存对话框（可选目录 + 文件名）
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [{ description: '龙胤立志传 存档', accept: { 'application/octet-stream': [''] } }],
+          excludeAcceptAllOption: false,
+        });
+        const writable = await handle.createWritable();
+        await writable.write(await encodeSaveText(text, state.srcFmt));
+        await writable.close();
+        // 保存后记住 handle，下次可以直接覆盖
+        state.fileHandle = handle;
+        onSaved(`已保存: ${handle.name}（之后可直接覆盖）`);
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') { showToast('已取消'); return; }
+        console.warn('FileSystem API 失败, 降级:', e);
+      }
+    }
+
+    // 兜底: 传统下载到默认目录
+    const blob = new Blob([await encodeSaveText(text, state.srcFmt)], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = suggestedName;
+    a.click();
+    URL.revokeObjectURL(url);
+    onSaved('已导出到下载目录');
+  } catch (e) {
+    showToast('导出失败：' + e.message, true);
+  } finally {
+    setLoading(false);
+  }
+}
+
+function renderRoster() {
+  const list = document.getElementById('rosterList');
+  list.innerHTML = '';
+  const search = document.getElementById('searchInput').value.trim().toLowerCase();
+  const filter = state.rosterFilter;
+  const forceFilter = state.rosterForce;
+  const sexFilter = state.rosterSex;
+  const talentFilter = state.rosterTalent;
+  let visible = 0;
+  let validTotal = 0;
+  // 同时统计每个门派的人数（用于下拉显示）
+  const forceCount = new Map();
+  state.rawData.forEach((hero, idx) => {
+    if (hero === null) return;
+    validTotal++;
+    const fid = hero.belongForceID;
+    if (fid !== undefined) forceCount.set(fid, (forceCount.get(fid) || 0) + 1);
+    if (filter === 'alive' && hero.dead) return;
+    if (filter === 'player' && hero.heroID !== 0) return;
+    if (filter === 'dirty' && !state.dirtyIdx.has(idx)) return;
+    if (forceFilter !== '' && String(fid) !== forceFilter) return;
+    if (state.rosterHideNoArea && hero.atAreaID === -1) return;
+    if (sexFilter === 'f' && hero.isFemale !== true) return;
+    if (sexFilter === 'm' && hero.isFemale === true) return;
+    if (talentFilter !== '') {
+      const tv = hero.talent ?? 0;
+      if (talentFilter[0] === 'e') {
+        if (tv !== parseInt(talentFilter.slice(1), 10)) return;
+      } else {
+        if (tv < parseInt(talentFilter, 10)) return;
+      }
+    }
+    if (search) {
+      const hay = `${hero.heroName||''} ${hero.heroNickName||''} ${hero.heroFamilyName||''} ${hero.heroID}`.toLowerCase();
+      if (!hay.includes(search)) return;
+    }
+    visible++;
+    const el = document.createElement('div');
+    el.className = 'roster-item';
+    el.dataset.heroIdx = idx;
+    if (idx === state.selectedIdx) el.classList.add('active');
+    if (state.dirtyIdx.has(idx)) el.classList.add('dirty');
+    if (hero.dead) el.classList.add('dead');
+    if (hero.heroID === 0) el.classList.add('player');
+    const forceName = lookupForce(fid);
+    el.innerHTML = `
+      <div style="flex:1;overflow:hidden">
+        <div class="roster-item-name">
+          ${escapeHtml(hero.heroName || '(无名)')}
+          ${hero.heroNickName ? `<span class="nick">${escapeHtml(hero.heroNickName)}</span>` : ''}
+        </div>
+        <div class="roster-item-force">
+          ${hero.isFemale ? '♀' : '♂'}${forceName ? ' · ' + escapeHtml(forceName) : ''}${(hero.talent ?? 0) > 0 ? ` · 天赋${hero.talent}` : ''}
+        </div>
+      </div>
+      <div class="roster-item-meta">#${hero.heroID}</div>
+    `;
+    el.addEventListener('click', () => {
+      state.selectedIdx = idx;
+      renderRoster();
+      renderDetail();
+    });
+    list.appendChild(el);
+  });
+  document.getElementById('rosterCount').textContent = `${visible} / ${validTotal} 人`;
+
+  // 刷新门派下拉（仅在选项变化时重建，避免破坏当前选择状态）
+  const select = document.getElementById('forceFilter');
+  if (select && select.dataset.built !== '1') {
+    // 按存档里实际人数排序，多的在前
+    const entries = [...forceCount.entries()].sort((a, b) => b[1] - a[1]);
+    let opts = `<option value="">全部门派 (${validTotal})</option>`;
+    for (const [fid, cnt] of entries) {
+      const name = lookupForce(fid) || `门派#${fid}`;
+      opts += `<option value="${fid}">${escapeHtml(name)} (${cnt})</option>`;
+    }
+    select.innerHTML = opts;
+    select.value = forceFilter;
+    select.dataset.built = '1';
+  }
+}
+
+function renderDetail() {
+  const detail = document.getElementById('detail');
+  if (state.selectedIdx < 0 || !state.rawData || state.rawData[state.selectedIdx] === null) {
+    detail.innerHTML = '<div class="detail-empty">从左侧选择一位人物</div>';
+    return;
+  }
+  const hero = state.rawData[state.selectedIdx];
+  const tabs = [
+    { id: 'basic',   label: '基本',     n: '' },
+    { id: 'attrs',   label: '属性',     n: '' },
+    { id: 'combat',  label: '战斗',     n: '' },
+    { id: 'kungfu',  label: '武功',     n: hero.kungfuSkills?.length || 0 },
+    { id: 'items',   label: '包裹',     n: hero.itemListData?.allItem?.length || 0 },
+    { id: 'storage', label: '仓库',     n: hero.selfStorage?.allItem?.length || 0 },
+    { id: 'equip',   label: '装备',     n: '' },
+    { id: 'rel',     label: '关系',     n: '' },
+    { id: 'raw',     label: '原始JSON', n: '' },
+  ];
+
+  detail.innerHTML = `
+    <div class="detail-head">
+      <div class="detail-name">${escapeHtml(hero.heroName || '(无名)')}</div>
+      ${hero.heroNickName ? `<div class="detail-nick">${escapeHtml(hero.heroNickName)}</div>` : ''}
+      <div class="detail-tags">
+        ${hero.heroID === 0 ? '<span class="detail-tag player">主角</span>' : ''}
+        ${hero.dead ? '<span class="detail-tag dead">已亡</span>' : ''}
+        <span class="detail-tag">${hero.isFemale ? '女' : '男'}</span>
+        <span class="detail-tag">${hero.age} 岁</span>
+      </div>
+      <div class="detail-meta">heroID #${hero.heroID} · idx ${state.selectedIdx}</div>
+    </div>
+    <div class="tabs">
+      ${tabs.map(t => `
+        <div class="tab ${t.id === state.activeTab ? 'active' : ''}" data-tab="${t.id}">
+          ${t.label}${t.n !== '' ? `<span class="tab-num">${t.n}</span>` : ''}
+        </div>
+      `).join('')}
+    </div>
+    <div class="tab-panel ${state.activeTab === 'basic' ? 'active' : ''}" data-panel="basic">${renderBasic(hero)}</div>
+    <div class="tab-panel ${state.activeTab === 'attrs' ? 'active' : ''}" data-panel="attrs">${renderAttrs(hero)}</div>
+    <div class="tab-panel ${state.activeTab === 'combat' ? 'active' : ''}" data-panel="combat">${renderCombat(hero)}</div>
+    <div class="tab-panel ${state.activeTab === 'kungfu' ? 'active' : ''}" data-panel="kungfu">${renderKungfu(hero)}</div>
+    <div class="tab-panel ${state.activeTab === 'items' ? 'active' : ''}" data-panel="items">${renderItems(hero, 'inventory')}</div>
+    <div class="tab-panel ${state.activeTab === 'storage' ? 'active' : ''}" data-panel="storage">${renderItems(hero, 'storage')}</div>
+    <div class="tab-panel ${state.activeTab === 'equip' ? 'active' : ''}" data-panel="equip">${renderEquip(hero)}</div>
+    <div class="tab-panel ${state.activeTab === 'rel' ? 'active' : ''}" data-panel="rel">${renderRelations(hero)}</div>
+    <div class="tab-panel ${state.activeTab === 'raw' ? 'active' : ''}" data-panel="raw">${renderRaw(hero)}</div>
+  `;
+  detail.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      state.activeTab = t.dataset.tab;
+      detail.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+      detail.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.panel === state.activeTab));
+    });
+  });
+  attachListeners(hero);
+}
+
+function renderBasic(hero) {
+  let body = '<div class="info-grid">';
+  for (const f of BASIC_FIELDS) { if (DERIVED_KEYS.has(f.key) && hero[f.key] === undefined) continue; body += renderInfoRow(hero, f); }
+  body += '</div>';
+  body += `
+    <div class="section" style="margin-top:22px">
+      <div class="section-head">
+        <div class="section-mark"></div>
+        <div class="section-title">银两 / 资财</div>
+        <div class="section-title-en">money</div>
+      </div>
+      <div class="info-grid">
+        <div class="info-row">
+          <div class="info-label">身上银两</div>
+          <input type="number" class="info-input" data-money="inventory" value="${hero.itemListData?.money ?? 0}">
+        </div>
+        <div class="info-row">
+          <div class="info-label">仓库银两</div>
+          <input type="number" class="info-input" data-money="storage" value="${hero.selfStorage?.money ?? 0}">
+        </div>
+        <div class="info-row">
+          <div class="info-label">包裹负重</div>
+          <input type="number" class="info-input" data-bag-weight="weight" value="${hero.itemListData?.weight ?? 0}" step="0.01">
+        </div>
+        <div class="info-row">
+          <div class="info-label">负重上限</div>
+          <input type="number" class="info-input" data-bag-weight="maxWeight" value="${hero.itemListData?.maxWeight ?? 0}">
+        </div>
+      </div>
+    </div>
+  `;
+  // 天赋（heroTagData 数组）
+  const tags = hero.heroTagData || [];
+  body += `
+    <div class="section" style="margin-top:22px">
+      <div class="section-head">
+        <div class="section-mark"></div>
+        <div class="section-title">天赋 / 标签 (${tags.length})</div>
+        <div class="section-actions">
+          <button class="btn btn-mini" id="btnAddTag">+ 新增天赋</button>
+          <button class="btn btn-mini btn-ghost" data-rel-edit-key="heroTagData">编辑 JSON</button>
+        </div>
+        <div class="section-title-en">tags · 天赋点 ${hero.heroTagPoint ?? 0}</div>
+      </div>
+      ${tags.length === 0 ? '<div class="rel-empty">无天赋</div>' : `
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px 12px">
+        ${tags.map((t, i) => {
+          const e = lookupTagFull(t.tagID);
+          const name = e?.n || `tag ${t.tagID}`;
+          const cat = e?.c || '';
+          const eff = e?.e || '';
+          const req = e?.r ? `领悟需求: ${e.r}` : '';
+          const timeNote = (t.leftTime !== undefined && t.leftTime !== -1) ? `<span style="font-size:10px;color:var(--ink-soft)" title="剩余">剩 ${t.leftTime}</span>` : '';
+          return `<div class="rel-item" style="flex-direction:column;align-items:stretch;gap:2px" ${req ? `title="${escapeHtml(req)}"` : ''}>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span class="rid">#${t.tagID}</span>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(name)}${cat ? `<span style="font-size:9px;color:var(--ink-soft);margin-left:4px;opacity:0.65">${escapeHtml(cat)}</span>` : ''}</span>
+              ${timeNote}
+              <button class="icon-btn" data-tag-del="${i}" title="删除">✕</button>
+            </div>
+            ${eff ? `<div style="font-size:10px;color:var(--ink-soft);opacity:0.75;line-height:1.4;padding-left:2px">${escapeHtml(eff)}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+      `}
+    </div>
+  `;
+  return `
+    <div class="section">
+      <div class="section-head">
+        <div class="section-mark"></div>
+        <div class="section-title">基本资料</div>
+        <div class="section-title-en">profile</div>
+      </div>
+      ${body}
+    </div>
+  `;
+}
+
+function renderInfoRow(hero, f) {
+  const v = hero[f.key];
+  let inputHtml;
+  if (f.type === 'enum') {
+    inputHtml = `<select class="info-input" data-key="${f.key}" data-type="enum">${f.options.map(o => `<option value="${o.v}" ${String(v) === String(o.v) ? 'selected' : ''}>${escapeHtml(o.l)}</option>`).join('')}</select>`;
+  } else if (f.type === 'dict') {
+    // 用字典生成下拉，value 是 ID（数字），按 ID 排序
+    const dict = f.dict;
+    const entries = Object.keys(dict)
+      .map(k => parseInt(k, 10))
+      .sort((a, b) => a - b)
+      .map(id => {
+        const name = typeof dict[id] === 'object' ? (dict[id].n || dict[id]) : dict[id];
+        return { id, name };
+      });
+    const hasCur = entries.some(e => e.id === v);
+    inputHtml = `<select class="info-input" data-key="${f.key}" data-type="number">
+      ${hasCur ? '' : `<option value="${v}" selected>(未知 ${v})</option>`}
+      ${entries.map(e => `<option value="${e.id}" ${e.id === v ? 'selected' : ''}>${escapeHtml(String(e.name))} (${e.id})</option>`).join('')}
+    </select>`;
+  } else if (f.type === 'forcelv') {
+    // 门派职位 / 江湖声望：根据是否有门派用不同称呼
+    const inForce = hero.belongForceID !== -1 && hero.belongForceID !== undefined;
+    const LABELS = inForce
+      ? ['外门弟子', '入门弟子', '正式弟子', '亲传弟子', '长老', '掌门/副掌门']
+      : ['武者', '游侠', '豪杰', '大侠', '名家', '宗师'];
+    const cur = v ?? 0;
+    inputHtml = `<select class="info-input" data-key="${f.key}" data-type="number">
+      ${(cur < 0 || cur > 5) ? `<option value="${cur}" selected>(等级 ${cur})</option>` : ''}
+      ${LABELS.map((l, i) => `<option value="${i}" ${i === cur ? 'selected' : ''}>${l} (${i})</option>`).join('')}
+    </select>`;
+  } else if (f.type === 'number') {
+    inputHtml = `<input type="number" class="info-input" data-key="${f.key}" data-type="number" value="${v ?? 0}" step="any">`;
+  } else {
+    inputHtml = `<input type="text" class="info-input" data-key="${f.key}" data-type="text" value="${escapeHtml(v ?? '')}">`;
+  }
+  // 反查显示
+  let lookup = '';
+  if (f.key === 'nature') {
+    // 性格: 0正直 1阴险 2仁慈 3残忍 4冷静 5暴躁 6幸运 7不幸（推测，参考天赋表的对照编号 160+）
+    const NATURE = ['正直','阴险','仁慈','残忍','冷静','暴躁','幸运','不幸'];
+    lookup = NATURE[v] || '';
+  } else if (f.key === 'favor') {
+    if (v === -999999 || v === undefined || v === null) lookup = '未建立';
+    else if (v >= 80) lookup = '挚爱';
+    else if (v >= 50) lookup = '亲密';
+    else if (v >= 20) lookup = '友好';
+    else if (v > -20) lookup = '中立';
+    else if (v > -50) lookup = '反感';
+    else if (v > -80) lookup = '敌视';
+    else lookup = '死敌';
+  }
+  const lookupSpan = lookup ? `<span style="font-size:10px;color:var(--ink-soft);margin-left:6px;flex-shrink:0">${escapeHtml(lookup)}</span>` : '';
+  // favor 字段额外加一个"重置"按钮（设为 -999999 表示未建立）
+  const extra = f.key === 'favor'
+    ? `<button class="icon-btn" data-favor-reset title="重置为未建立 (-999999)" style="margin-left:4px;font-size:10px;flex-shrink:0">⟲</button>`
+    : '';
+  return `<div class="info-row"><div class="info-label">${escapeHtml(f.label)}</div>${inputHtml}${lookupSpan}${extra}</div>`;
+}
+
+function renderAttrs(hero) {
+  return `
+    ${renderAttrTrio('六维属性', 'attributes', ATTR_NAMES, hero.baseAttri, hero.maxAttri, hero.totalAttri, 'baseAttri', 'maxAttri', 'totalAttri')}
+    ${renderAttrTrio('武学属性', 'fight skills', FIGHT_NAMES, hero.baseFightSkill, hero.maxFightSkill, hero.totalFightSkill, 'baseFightSkill', 'maxFightSkill', 'totalFightSkill')}
+    ${renderAttrTrio('生活技艺', 'living skills', LIVING_NAMES, hero.baseLivingSkill, hero.maxLivingSkill, hero.totalLivingSkill, 'baseLivingSkill', 'maxLivingSkill', 'totalLivingSkill')}
+  `;
+}
+
+function renderAttrTrio(title, titleEn, names, base, max, total, baseKey, maxKey, totalKey) {
+  if (!base || !max) return '';
+  // 渲染单个属性单元格
+  function renderOne(i) {
+    return `
+      <div class="attr-pair">
+        <div class="attr-label">${escapeHtml(names[i])}</div>
+        <input type="number" data-arr-key="${baseKey}" data-arr-idx="${i}" value="${base[i] ?? 0}" step="any">
+        <button class="plus10" data-arr-add="${baseKey}" data-arr-add-idx="${i}" title="+10">+10</button>
+        <input type="number" data-arr-key="${maxKey}" data-arr-idx="${i}" value="${max[i] ?? 0}" step="any">
+        <button class="plus10" data-arr-add="${maxKey}" data-arr-add-idx="${i}" title="+10">+10</button>
+      </div>
+    `;
+  }
+  // 表头（左右各一份）
+  const headRow = `
+    <div class="attr-pair head">
+      <div></div><div>基础值</div><div></div><div>上限/潜力</div><div></div>
+    </div>
+  `;
+  // 两列分布：左列偶数 idx，右列奇数 idx? 或者左右各一半？
+  // 为可读性，左右各一半（前一半 / 后一半），不打乱顺序
+  let rows = `<div class="attr-grid">${headRow}${headRow}</div>`;
+  rows += '<div class="attr-grid">';
+  for (let i = 0; i < names.length; i++) rows += renderOne(i);
+  rows += '</div>';
+
+  return `
+    <div class="section">
+      <div class="section-head">
+        <div class="section-mark"></div>
+        <div class="section-title">${escapeHtml(title)}</div>
+        <div class="section-title-en">${escapeHtml(titleEn)}</div>
+      </div>
+      <div class="quick-fill">
+        <span class="qf-label">一键加点</span>
+        <button class="btn btn-mini" data-qf-add="${baseKey}" data-qf-len="${names.length}">基础 +10</button>
+        <button class="btn btn-mini" data-qf-add="${maxKey}" data-qf-len="${names.length}">上限 +10</button>
+        <span class="qf-label" style="margin-left:auto;opacity:0.5">点一下，所有项原值 +10。总值由游戏自动计算</span>
+      </div>
+      ${rows}
+    </div>
+  `;
+}
+
+function renderCombat(hero) {
+  let body = '<div class="info-grid">';
+  let derivedHidden = false;
+  for (const f of COMBAT_FIELDS) {
+    if (DERIVED_KEYS.has(f.key) && hero[f.key] === undefined) { derivedHidden = true; continue; }
+    body += `
+      <div class="info-row">
+        <div class="info-label">${escapeHtml(f.label)}</div>
+        <input type="number" class="info-input" data-key="${f.key}" data-type="number" value="${hero[f.key] ?? 0}" step="any">
+      </div>
+    `;
+  }
+  body += '</div>';
+  if (derivedHidden) body += '<div class="info-note" style="margin-top:10px;font-size:12px;opacity:.65">气血 / 体力 / 内力上限和护甲由游戏读档时自动计算（新版存档不再保存），这里不显示。</div>';
+  return `
+    <div class="section">
+      <div class="section-head">
+        <div class="section-mark"></div>
+        <div class="section-title">气血 / 体力 / 内力 / 伤势</div>
+        <div class="section-actions">
+          ${hero.realMaxHp === undefined ? '' : '<button class="btn btn-mini" id="btnFullHeal">满血满内</button>'}
+          <button class="btn btn-mini" id="btnClearInjury">清除伤势</button>
+        </div>
+        <div class="section-title-en">combat</div>
+      </div>
+      ${body}
+    </div>
+  `;
+}
+
+function renderKungfu(hero) {
+  const skills = hero.kungfuSkills || [];
+  const filt = state.kungfuFilter;
+
+  // 收集所有出现过的类别和门派
+  const cats = new Set(), forces = new Set();
+  for (const s of skills) {
+    const e = lookupSkill(s.skillID);
+    if (e.c) cats.add(e.c);
+    if (e.f) forces.add(e.f);
+  }
+
+  let visibleCount = 0;
+  const cards = skills.map((s, i) => {
+    const e = lookupSkill(s.skillID);
+    // 过滤
+    if (filt.cat && e.c !== filt.cat) return '';
+    if (filt.force && e.f !== filt.force) return '';
+    if (filt.search) {
+      const q = filt.search.toLowerCase();
+      const hay = (e.n + ' ' + e.f + ' ' + e.c + ' ' + s.skillID).toLowerCase();
+      if (!hay.includes(q)) return '';
+    }
+    visibleCount++;
+    const lvName = KF_LV_NAME[e.l] || '';
+    return `
+      <div class="kungfu-card ${s.equiped ? 'equiped' : ''}">
+        <span class="kungfu-id">#${s.skillID}</span>
+        <span class="kungfu-name">
+          ${s.equiped ? '★ ' : ''}<span class="kfl-${e.l ?? 0}" style="font-weight:500">${escapeHtml(e.n)}</span>
+          <span style="font-size:10px;color:var(--ink-soft);margin-left:6px">${escapeHtml(e.c)} · ${escapeHtml(e.f)}${lvName ? ' · ' + lvName : ''}</span>
+        </span>
+        <div class="kungfu-lv">
+          Lv
+          <input type="number" min="0" max="10" data-kf-idx="${i}" data-kf-key="lv" value="${s.lv ?? 0}">
+        </div>
+        <button class="icon-btn" data-kf-attr="${i}" title="编辑属性">🔧</button>
+        <button class="icon-btn" data-kf-edit="${i}" title="完整 JSON">⋯</button>
+      </div>
+    `;
+  }).join('');
+
+  let catOpts = '<option value="">全部类别</option>';
+  for (const c of [...cats].sort()) catOpts += `<option value="${escapeHtml(c)}" ${filt.cat === c ? 'selected' : ''}>${escapeHtml(c)}</option>`;
+  let forceOpts = '<option value="">全部门派</option>';
+  for (const f of [...forces].sort()) forceOpts += `<option value="${escapeHtml(f)}" ${filt.force === f ? 'selected' : ''}>${escapeHtml(f)}</option>`;
+
+  return `
+    <div class="section">
+      <div class="section-head">
+        <div class="section-mark"></div>
+        <div class="section-title">武功列表</div>
+        <div class="section-actions">
+          <button class="btn btn-mini" id="btnAllLv10">全部满级</button>
+          <button class="btn btn-mini" id="btnFullExp">填满经验</button>
+        </div>
+        <div class="section-title-en">kungfu</div>
+      </div>
+      <div class="item-toolbar">
+        <input type="text" placeholder="搜索武功名 / 门派 / ID" value="${escapeHtml(filt.search)}" data-kf-search>
+        <select data-kf-cat>${catOpts}</select>
+        <select data-kf-force>${forceOpts}</select>
+        <span class="count-badge">${visibleCount} / ${skills.length} 项</span>
+      </div>
+      <div class="kungfu-list">${cards || '<div class="rel-empty">无匹配武功</div>'}</div>
+      <div style="margin-top:12px;font-size:11px;color:var(--ink-soft);opacity:0.7">
+        颜色: <span class="kfl-0">基础</span> / <span class="kfl-1">进阶</span> / <span class="kfl-2">上乘</span> / <span class="kfl-3">秘传</span> / <span class="kfl-4">顶级</span> / <span class="kfl-5">绝世</span>。点 ⋯ 编辑武功完整 JSON（fightExp / bookExp 经验、speUseData 等）。
+      </div>
+    </div>
+  `;
+}
+
+function renderItems(hero, kind) {
+  const data = kind === 'inventory' ? hero.itemListData : hero.selfStorage;
+  if (!data || !Array.isArray(data.allItem)) {
+    return '<div class="detail-empty" style="padding:60px 0">无物品数据</div>';
+  }
+  const items = data.allItem;
+  const filterState = kind === 'inventory' ? state.itemFilter : state.storageFilter;
+  let typeOpts = '<option value="">全部类型</option>';
+  for (const [k, v] of Object.entries(ITEM_TYPES)) {
+    typeOpts += `<option value="${k}" ${filterState.type === k ? 'selected' : ''}>${escapeHtml(v)}</option>`;
+  }
+  let rows = '';
+  let visibleCount = 0;
+  items.forEach((it, idx) => {
+    if (filterState.type !== '' && String(it.type) !== filterState.type) return;
+    if (filterState.search) {
+      const s = filterState.search.toLowerCase();
+      if (!String(it.name || '').toLowerCase().includes(s) && !String(it.itemID || '').includes(s)) return;
+    }
+    visibleCount++;
+    const isEquipped = it.equipmentData?.equiped === true || it.horseData?.equiped === true;
+    const equipMark = isEquipped ? '<span class="equiped-mark">●</span>' : '';
+    // 秘籍类(type=3)反查武功
+    let nameExtra = '';
+    if (it.type === 3 && it.bookData?.skillID !== undefined) {
+      const e = lookupSkill(it.bookData.skillID);
+      if (e.f && e.c) nameExtra = `<span style="font-size:10px;color:var(--ink-soft);margin-left:6px">[${escapeHtml(e.c)} · ${escapeHtml(e.f)}]</span>`;
+    }
+    rows += `
+      <tr>
+        <td class="col-id">#${idx}</td>
+        <td class="col-equip">${equipMark}</td>
+        <td class="col-name rare-${it.itemLv ?? 0}">${escapeHtml(it.name || '(无名)')}<span class="rare-dot r-${it.rareLv ?? 0}" title="rareLv ${it.rareLv ?? 0}"></span>${nameExtra}</td>
+        <td class="col-type">${escapeHtml(ITEM_TYPES[it.type] || '?')}${it.type === 0 ? '/' + (EQUIP_SUBTYPES[it.subType] || '?') : ''}</td>
+        <td class="col-rare rare-${it.itemLv ?? 0}">${'★'.repeat((it.itemLv ?? 0) + 1)}</td>
+        <td class="col-num"><input type="number" data-item-key="value" data-${kind}-idx="${idx}" value="${it.value ?? 0}"></td>
+        <td class="col-num"><input type="number" data-item-key="itemLv" data-${kind}-idx="${idx}" value="${it.itemLv ?? 0}"></td>
+        <td class="col-num"><input type="number" data-item-key="poisonNum" data-${kind}-idx="${idx}" value="${it.poisonNum ?? 0}" step="any"></td>
+        <td class="col-act" style="width:80px">
+          ${it.type === 0 && it.equipmentData ? `<button class="icon-btn" data-${kind}-attr="${idx}" title="编辑属性">🔧</button>` : ''}
+          <button class="icon-btn" data-${kind}-edit="${idx}" title="完整 JSON">⋯</button>
+          <button class="icon-btn" data-${kind}-del="${idx}" title="删除">✕</button>
+        </td>
+      </tr>
+    `;
+  });
+  return `
+    <div class="section">
+      <div class="section-head">
+        <div class="section-mark"></div>
+        <div class="section-title">${kind === 'inventory' ? '随身包裹' : '私人仓库'}</div>
+        <div class="section-actions">
+          <button class="btn btn-mini" data-${kind}-maxbooks title="把所有秘籍(type=3)的 rareLv 设为5，并按 itemLv 重算价值">秘籍稀有度拉满</button>
+        </div>
+        <div class="section-title-en">${kind === 'inventory' ? 'inventory' : 'storage'}</div>
+      </div>
+      <div class="item-toolbar">
+        <input type="text" placeholder="搜索物品名 / ID" value="${escapeHtml(filterState.search)}" data-${kind}-search>
+        <select data-${kind}-type-filter>${typeOpts}</select>
+        <span class="count-badge">${visibleCount} / ${items.length} 件</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="item-table">
+          <thead>
+            <tr><th>idx</th><th></th><th>名称</th><th>类型</th><th>品阶</th><th>价值</th><th>等级</th><th>毒</th><th></th></tr>
+          </thead>
+          <tbody>${rows || '<tr><td colspan="9" style="text-align:center;padding:20px;opacity:0.5">无匹配物品</td></tr>'}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--ink-soft);opacity:0.65">
+        名字颜色 = itemLv（大等级 0-5：劣质/普通/优质/精良/完美/极品）；名字旁的小圆点 = rareLv（小分级，同色阶）。
+      </div>
+    </div>
+  `;
+}
+
+function renderEquip(hero) {
+  const ne = hero.nowEquipment;
+  if (!ne) return '<div class="detail-empty" style="padding:60px 0">无装备数据</div>';
+  const items = hero.itemListData?.allItem || [];
+  let body = '<div class="slot-grid">';
+  for (const slot of EQUIP_SLOTS) {
+    const recordArr = ne[slot.recordKey] || [];
+    const max = ne[slot.maxKey] ?? 1;
+    body += `
+      <div class="slot-card">
+        <div class="slot-head">
+          <span>${escapeHtml(slot.label)} <span style="opacity:0.4;font-family:JetBrains Mono,monospace">${escapeHtml(slot.recordKey)}</span></span>
+          <span class="max">${recordArr.length}/${max}</span>
+        </div>
+        <div class="slot-content">
+          ${recordArr.length === 0 ? '<span class="slot-empty">未装备</span>' : recordArr.map((idx) => {
+            const it = items[idx];
+            return `<div>
+              <span style="font-family:JetBrains Mono,monospace;font-size:10px;opacity:0.5">[${idx}]</span>
+              <span class="rare-${it?.itemLv ?? 0}">${escapeHtml(it?.name || '(找不到 idx '+idx+')')}</span>${it ? `<span class="rare-dot r-${it.rareLv ?? 0}" title="rareLv ${it.rareLv ?? 0}"></span>` : ''}
+              ${it ? `<span style="font-size:10px;color:var(--ink-soft);margin-left:6px">${escapeHtml(ITEM_TYPES[it.type]||'')}</span>` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+  body += '</div>';
+  const horseItem = items.find(it => it.horseData?.equiped);
+  body += `
+    <div class="section" style="margin-top:20px">
+      <div class="section-head">
+        <div class="section-mark"></div>
+        <div class="section-title">坐骑</div>
+        <div class="section-title-en">mount</div>
+      </div>
+      <div class="slot-card">
+        ${horseItem ? `
+          <div class="slot-head"><span class="rare-${horseItem.itemLv ?? 0}">${escapeHtml(horseItem.name)}</span><span class="rare-dot r-${horseItem.rareLv ?? 0}" title="rareLv ${horseItem.rareLv ?? 0}"></span></div>
+          <div class="slot-content">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px 14px;font-size:12px">
+              ${Object.entries(horseItem.horseData).filter(([k,v]) => typeof v !== 'object').map(([k, v]) => `
+                <div style="display:flex;justify-content:space-between"><span style="color:var(--ink-soft)">${escapeHtml(k)}</span><span style="font-family:JetBrains Mono,monospace">${typeof v === 'boolean' ? v : (typeof v === 'number' ? v.toFixed(2) : v)}</span></div>
+              `).join('')}
+            </div>
+          </div>
+        ` : '<span class="slot-empty">未骑乘</span>'}
+      </div>
+    </div>
+    <div style="margin-top:14px;padding:10px;border:1px dashed var(--paper-line);font-size:11px;color:var(--ink-soft);background:rgba(255,255,255,0.2)">
+      装备槽存的是 itemListData.allItem 数组里的 idx（不是 itemID）。要更换装备建议先在"包裹"标签找到目标物品的 idx，然后到"原始 JSON"标签直接编辑 weaponSaveRecord 等数组。
+    </div>
+  `;
+  return `
+    <div class="section">
+      <div class="section-head">
+        <div class="section-mark"></div>
+        <div class="section-title">已装备</div>
+        <div class="section-title-en">equipped</div>
+      </div>
+      ${body}
+    </div>
+  `;
+}
+
+function renderRelations(hero) {
+  let body = '<div class="info-grid">';
+  for (const f of RELATION_FIELDS) {
+    if (f.single) {
+      const desc = describeHero(hero[f.key]);
+      const lookupSpan = desc ? `<span style="font-size:10px;color:var(--ink-soft);margin-left:6px;flex-shrink:0">${escapeHtml(desc)}</span>` : '';
+      body += `
+        <div class="info-row">
+          <div class="info-label">${escapeHtml(f.label)} ID</div>
+          <input type="number" class="info-input" data-key="${f.key}" data-type="number" value="${hero[f.key] ?? -1}">
+          ${lookupSpan}
+        </div>
+      `;
+    }
+  }
+  body += '</div>';
+  let multi = '';
+  for (const f of RELATION_FIELDS) {
+    if (f.single) continue;
+    const v = hero[f.key];
+    multi += `
+      <div class="section" style="margin-top:18px">
+        <div class="section-head">
+          <div class="section-mark"></div>
+          <div class="section-title">${escapeHtml(f.label)}</div>
+          <div class="section-actions">
+            <button class="btn btn-mini" data-rel-add="${f.key}">+ 新增</button>
+            <button class="btn btn-mini btn-ghost" data-rel-edit="${f.key}">编辑 JSON</button>
+          </div>
+          <div class="section-title-en">${escapeHtml(f.key)}</div>
+        </div>
+        <div class="rel-list">
+          ${(Array.isArray(v) && v.length) ? v.map((id, i) => {
+            const desc = typeof id === 'object' ? '' : describeHero(id);
+            return `
+              <div class="rel-item">
+                <span class="rid">[${i}]</span>
+                <input type="number" class="info-input" data-rel-arr="${f.key}" data-rel-idx="${i}" value="${typeof id === 'object' ? '' : id}" style="width:60px;flex:0 0 60px" ${typeof id === 'object' ? 'disabled placeholder="(对象)"' : ''}>
+                <span style="font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(desc)}</span>
+                <button class="icon-btn" data-rel-del="${f.key}" data-rel-del-idx="${i}">✕</button>
+              </div>
+            `;
+          }).join('') : '<div class="rel-empty">无</div>'}
+        </div>
+      </div>
+    `;
+  }
+  return `
+    <div class="section">
+      <div class="section-head">
+        <div class="section-mark"></div>
+        <div class="section-title">单一关系</div>
+        <div class="section-title-en">single relations</div>
+      </div>
+      ${body}
+    </div>
+    ${multi}
+  `;
+}
+
+function renderRaw(hero) {
+  return `
+    <div class="section">
+      <div class="section-head">
+        <div class="section-mark"></div>
+        <div class="section-title">完整 JSON</div>
+        <div class="section-actions">
+          <button class="btn btn-mini" id="btnRawApply">应用修改</button>
+          <button class="btn btn-mini btn-ghost" id="btnRawCopy">复制</button>
+        </div>
+        <div class="section-title-en">raw json</div>
+      </div>
+      <textarea id="rawJsonArea" style="width:100%;min-height:60vh;border:1px solid var(--paper-line);background:rgba(255,255,255,0.4);padding:10px;font-family:JetBrains Mono,monospace;font-size:11px;color:var(--ink);outline:none;resize:vertical;line-height:1.5" spellcheck="false">${escapeHtml(JSON.stringify(hero, null, 2))}</textarea>
+      <div id="rawError" style="color:var(--vermillion);font-size:11px;margin-top:6px;min-height:14px"></div>
+    </div>
+  `;
+}
+
+function attachListeners(hero) {
+  const detail = document.getElementById('detail');
+
+  detail.querySelectorAll('[data-key]').forEach(el => {
+    el.addEventListener('change', () => {
+      const key = el.dataset.key;
+      const type = el.dataset.type;
+      let v;
+      if (type === 'number') v = parseFloat(el.value);
+      else if (type === 'enum') v = (el.value === 'true') ? true : (el.value === 'false') ? false : el.value;
+      else v = el.value;
+      if (Number.isNaN(v) && type === 'number') return;
+      hero[key] = v;
+      el.classList.add('changed');
+      markDirty();
+      if (['heroName','heroNickName','heroFamilyName','dead','isFemale','belongForceID','atAreaID'].includes(key)) renderRoster();
+      // 门派切换会影响"门派职位/声望"的称呼体系，重渲染详情
+      if (key === 'belongForceID') renderDetail();
+    });
+  });
+
+  detail.querySelectorAll('[data-arr-key]').forEach(el => {
+    el.addEventListener('change', () => {
+      const k = el.dataset.arrKey;
+      const i = parseInt(el.dataset.arrIdx, 10);
+      const v = parseFloat(el.value);
+      if (Number.isNaN(v)) return;
+      hero[k][i] = v;
+      el.classList.add('changed');
+      markDirty();
+    });
+  });
+
+  // 属性 +10 按钮
+  detail.querySelectorAll('[data-arr-add]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const k = btn.dataset.arrAdd;
+      const i = parseInt(btn.dataset.arrAddIdx, 10);
+      hero[k][i] = (hero[k][i] ?? 0) + 10;
+      // 更新对应输入框的显示
+      const inp = detail.querySelector(`[data-arr-key="${k}"][data-arr-idx="${i}"]`);
+      if (inp) { inp.value = hero[k][i]; inp.classList.add('changed'); }
+      markDirty();
+    });
+  });
+
+  // favor 重置按钮
+  const favorReset = detail.querySelector('[data-favor-reset]');
+  if (favorReset) favorReset.addEventListener('click', () => {
+    hero.favor = -999999;
+    markDirty();
+    renderDetail();
+  });
+
+  detail.querySelectorAll('[data-qf-add]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const k = btn.dataset.qfAdd;
+      const len = parseInt(btn.dataset.qfLen, 10);
+      for (let i = 0; i < len; i++) hero[k][i] = (hero[k][i] ?? 0) + 10;
+      markDirty();
+      renderDetail();
+      showToast(`${k} 全部 +10`);
+    });
+  });
+
+  const fullHeal = document.getElementById('btnFullHeal');
+  if (fullHeal) fullHeal.addEventListener('click', () => {
+    hero.hp = hero.maxhp = hero.realMaxHp;
+    hero.power = hero.maxPower = hero.realMaxPower;
+    hero.mana = hero.maxMana = hero.realMaxMana;
+    markDirty();
+    renderDetail();
+    showToast('已恢复满血/满内/满力');
+  });
+  const clearInj = document.getElementById('btnClearInjury');
+  if (clearInj) clearInj.addEventListener('click', () => {
+    hero.externalInjury = 0;
+    hero.internalInjury = 0;
+    hero.poisonInjury = 0;
+    markDirty();
+    renderDetail();
+    showToast('伤势已清');
+  });
+
+  detail.querySelectorAll('[data-kf-idx]').forEach(el => {
+    el.addEventListener('change', () => {
+      const i = parseInt(el.dataset.kfIdx, 10);
+      const k = el.dataset.kfKey;
+      const v = parseFloat(el.value);
+      if (Number.isNaN(v)) return;
+      hero.kungfuSkills[i][k] = v;
+      el.classList.add('changed');
+      markDirty();
+    });
+  });
+  detail.querySelectorAll('[data-kf-edit]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = parseInt(btn.dataset.kfEdit, 10);
+      openJsonModal(`武功 #${hero.kungfuSkills[i].skillID}`, hero.kungfuSkills, i, () => renderDetail());
+    });
+  });
+  detail.querySelectorAll('[data-kf-attr]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = parseInt(btn.dataset.kfAttr, 10);
+      openAttrModalForKungfu(hero, hero.kungfuSkills[i], i);
+    });
+  });
+  const btnAll10 = document.getElementById('btnAllLv10');
+  if (btnAll10) btnAll10.addEventListener('click', () => {
+    if (!confirm('将该人物所有武功设为满级 (lv=10)？')) return;
+    hero.kungfuSkills.forEach(s => s.lv = 10);
+    markDirty();
+    renderDetail();
+    showToast('全部武功已满级');
+  });
+  const btnFE = document.getElementById('btnFullExp');
+  if (btnFE) btnFE.addEventListener('click', () => {
+    hero.kungfuSkills.forEach(s => {
+      if ('fightExp' in s) s.fightExp = 99999;
+      if ('bookExp' in s) s.bookExp = 99999;
+    });
+    markDirty();
+    renderDetail();
+    showToast('武功经验已填满');
+  });
+
+  // 武功筛选 - 局部刷新该 panel
+  const refreshKfPanel = () => {
+    const panel = detail.querySelector('[data-panel="kungfu"]');
+    panel.innerHTML = renderKungfu(hero);
+    attachListeners(hero);
+  };
+  const kfSearch = detail.querySelector('[data-kf-search]');
+  if (kfSearch) kfSearch.addEventListener('input', () => {
+    state.kungfuFilter.search = kfSearch.value;
+    refreshKfPanel();
+    // 输入框失焦后，恢复焦点和光标位置
+    const newInput = detail.querySelector('[data-kf-search]');
+    if (newInput) { newInput.focus(); newInput.setSelectionRange(newInput.value.length, newInput.value.length); }
+  });
+  const kfCat = detail.querySelector('[data-kf-cat]');
+  if (kfCat) kfCat.addEventListener('change', () => {
+    state.kungfuFilter.cat = kfCat.value;
+    refreshKfPanel();
+  });
+  const kfForce = detail.querySelector('[data-kf-force]');
+  if (kfForce) kfForce.addEventListener('change', () => {
+    state.kungfuFilter.force = kfForce.value;
+    refreshKfPanel();
+  });
+
+  for (const kind of ['inventory', 'storage']) {
+    const data = kind === 'inventory' ? hero.itemListData : hero.selfStorage;
+    if (!data?.allItem) continue;
+
+    detail.querySelectorAll(`[data-${kind}-idx][data-item-key]`).forEach(el => {
+      el.addEventListener('change', () => {
+        const i = parseInt(el.dataset[`${kind}Idx`], 10);
+        const k = el.dataset.itemKey;
+        const v = parseFloat(el.value);
+        if (Number.isNaN(v)) return;
+        data.allItem[i][k] = v;
+        el.classList.add('changed');
+        markDirty();
+      });
+    });
+    detail.querySelectorAll(`[data-${kind}-edit]`).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = parseInt(btn.dataset[`${kind}Edit`], 10);
+        openJsonModal(`物品 ${data.allItem[i].name}`, data.allItem, i, () => renderDetail());
+      });
+    });
+    detail.querySelectorAll(`[data-${kind}-attr]`).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = parseInt(btn.dataset[`${kind}Attr`], 10);
+        openAttrModalForItem(hero, data.allItem[i], kind, i);
+      });
+    });
+    detail.querySelectorAll(`[data-${kind}-del]`).forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = parseInt(btn.dataset[`${kind}Del`], 10);
+        if (!confirm(`删除：${data.allItem[i].name}?`)) return;
+        data.allItem.splice(i, 1);
+        markDirty();
+        renderDetail();
+      });
+    });
+    const filterState = kind === 'inventory' ? state.itemFilter : state.storageFilter;
+    const searchInp = detail.querySelector(`[data-${kind}-search]`);
+    if (searchInp) {
+      searchInp.addEventListener('input', () => {
+        filterState.search = searchInp.value;
+        const panel = detail.querySelector(`[data-panel="${kind === 'inventory' ? 'items' : 'storage'}"]`);
+        panel.innerHTML = renderItems(hero, kind);
+        attachListeners(hero);
+      });
+    }
+    const typeFilter = detail.querySelector(`[data-${kind}-type-filter]`);
+    if (typeFilter) {
+      typeFilter.addEventListener('change', () => {
+        filterState.type = typeFilter.value;
+        const panel = detail.querySelector(`[data-panel="${kind === 'inventory' ? 'items' : 'storage'}"]`);
+        panel.innerHTML = renderItems(hero, kind);
+        attachListeners(hero);
+      });
+    }
+    const maxBooksBtn = detail.querySelector(`[data-${kind}-maxbooks]`);
+    if (maxBooksBtn) {
+      maxBooksBtn.addEventListener('click', () => {
+        // 秘籍价值公式: BASE[itemLv] * (1 + rareLv*0.2)
+        const BOOK_BASE = [500, 1000, 2000, 4000, 8000, 16000];
+        const books = data.allItem.filter(it => it.type === 3);
+        if (books.length === 0) { showToast('没有秘籍', true); return; }
+        if (!confirm(`将 ${books.length} 本秘籍的 rareLv 设为 5（最高小分级），并按 itemLv 重算价值？\n（itemLv 大等级不变）`)) return;
+        books.forEach(it => {
+          it.rareLv = 5;
+          const lv = it.itemLv ?? 0;
+          const base = BOOK_BASE[lv] ?? (BOOK_BASE[BOOK_BASE.length - 1]);
+          it.value = Math.round(base * (1 + 5 * 0.2)); // rareLv=5 -> ×2.0
+        });
+        markDirty();
+        const panel = detail.querySelector(`[data-panel="${kind === 'inventory' ? 'items' : 'storage'}"]`);
+        panel.innerHTML = renderItems(hero, kind);
+        attachListeners(hero);
+        showToast(`已将 ${books.length} 本秘籍稀有度拉满并重算价值`);
+      });
+    }
+  }
+
+  detail.querySelectorAll('[data-money]').forEach(el => {
+    el.addEventListener('change', () => {
+      const which = el.dataset.money;
+      const target = which === 'inventory' ? hero.itemListData : hero.selfStorage;
+      if (!target) return;
+      const v = parseFloat(el.value);
+      if (Number.isNaN(v)) return;
+      target.money = v;
+      el.classList.add('changed');
+      markDirty();
+    });
+  });
+  detail.querySelectorAll('[data-bag-weight]').forEach(el => {
+    el.addEventListener('change', () => {
+      const k = el.dataset.bagWeight;
+      const v = parseFloat(el.value);
+      if (Number.isNaN(v)) return;
+      hero.itemListData[k] = v;
+      el.classList.add('changed');
+      markDirty();
+    });
+  });
+
+  detail.querySelectorAll('[data-rel-arr]').forEach(el => {
+    el.addEventListener('change', () => {
+      const k = el.dataset.relArr;
+      const i = parseInt(el.dataset.relIdx, 10);
+      const v = parseFloat(el.value);
+      if (Number.isNaN(v)) return;
+      hero[k][i] = v;
+      el.classList.add('changed');
+      markDirty();
+    });
+  });
+  detail.querySelectorAll('[data-rel-add]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const k = btn.dataset.relAdd;
+      hero[k].push(-1);
+      markDirty();
+      renderDetail();
+    });
+  });
+  detail.querySelectorAll('[data-rel-del]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const k = btn.dataset.relDel;
+      const i = parseInt(btn.dataset.relDelIdx, 10);
+      hero[k].splice(i, 1);
+      markDirty();
+      renderDetail();
+    });
+  });
+  detail.querySelectorAll('[data-rel-edit]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const k = btn.dataset.relEdit;
+      openJsonModal(`关系 - ${k}`, hero, k, () => renderDetail());
+    });
+  });
+  detail.querySelectorAll('[data-rel-edit-key]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const k = btn.dataset.relEditKey;
+      openJsonModal(`编辑 ${k}`, hero, k, () => renderDetail());
+    });
+  });
+
+  // 天赋删除
+  detail.querySelectorAll('[data-tag-del]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = parseInt(btn.dataset.tagDel, 10);
+      const t = hero.heroTagData[i];
+      const name = lookupTag(t.tagID) || `tag ${t.tagID}`;
+      if (!confirm(`删除天赋: ${name} (#${t.tagID})?`)) return;
+      hero.heroTagData.splice(i, 1);
+      markDirty();
+      renderDetail();
+    });
+  });
+  // 天赋新增 - 打开选择 modal
+  const addTagBtn = document.getElementById('btnAddTag');
+  if (addTagBtn) addTagBtn.addEventListener('click', () => openTagModal(hero));
+
+  const rawApply = document.getElementById('btnRawApply');
+  if (rawApply) rawApply.addEventListener('click', () => {
+    const ta = document.getElementById('rawJsonArea');
+    const err = document.getElementById('rawError');
+    try {
+      const parsed = JSON.parse(ta.value);
+      state.rawData[state.selectedIdx] = parsed;
+      markDirty();
+      err.textContent = '';
+      renderDetail();
+      renderRoster();
+      showToast('已应用 JSON 修改');
+    } catch (e) {
+      err.textContent = '解析失败：' + e.message;
+    }
+  });
+  const rawCopy = document.getElementById('btnRawCopy');
+  if (rawCopy) rawCopy.addEventListener('click', () => {
+    const ta = document.getElementById('rawJsonArea');
+    ta.select();
+    try { document.execCommand('copy'); showToast('已复制'); } catch { showToast('复制失败', true); }
+  });
+}
+
+function openJsonModal(title, parent, key, onSave) {
+  state.modalCtx = { parent, key, onSave };
+  document.getElementById('modal').classList.add('show');
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalText').value = JSON.stringify(parent[key], null, 2);
+  document.getElementById('modalError').textContent = '';
+}
+function closeJsonModal() {
+  document.getElementById('modal').classList.remove('show');
+  state.modalCtx = null;
+}
+document.getElementById('modalClose').addEventListener('click', closeJsonModal);
+document.getElementById('modalCancel').addEventListener('click', closeJsonModal);
+document.getElementById('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeJsonModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeJsonModal(); });
+document.getElementById('modalSave').addEventListener('click', () => {
+  if (!state.modalCtx) return;
+  try {
+    const parsed = JSON.parse(document.getElementById('modalText').value);
+    state.modalCtx.parent[state.modalCtx.key] = parsed;
+    markDirty();
+    state.modalCtx.onSave?.();
+    closeJsonModal();
+    showToast('已应用');
+  } catch (e) {
+    document.getElementById('modalError').textContent = '解析失败：' + e.message;
+  }
+});
+
+// === 天赋选择 modal ===
+let tagModalCtx = null; // { hero }
+function openTagModal(hero) {
+  tagModalCtx = { hero };
+  // 填充大类下拉
+  const cats = new Set();
+  for (const id in TAG_DICT) {
+    const c = TAG_DICT[id].c;
+    if (c) cats.add(c);
+  }
+  const catSel = document.getElementById('tagCatFilter');
+  catSel.innerHTML = '<option value="">全部大类</option>' +
+    [...cats].map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  catSel.value = '';
+  document.getElementById('tagSearch').value = '';
+  document.getElementById('tagHideExisting').checked = true;
+  document.getElementById('tagModal').classList.add('show');
+  renderTagList();
+  setTimeout(() => document.getElementById('tagSearch').focus(), 50);
+}
+function closeTagModal() {
+  document.getElementById('tagModal').classList.remove('show');
+  tagModalCtx = null;
+}
+function renderTagList() {
+  if (!tagModalCtx) return;
+  const hero = tagModalCtx.hero;
+  const search = document.getElementById('tagSearch').value.trim().toLowerCase();
+  const cat = document.getElementById('tagCatFilter').value;
+  const hideExisting = document.getElementById('tagHideExisting').checked;
+  const existing = new Set((hero.heroTagData || []).map(t => t.tagID));
+  const list = document.getElementById('tagList');
+  let html = '';
+  let count = 0;
+  for (const id in TAG_DICT) {
+    const e = TAG_DICT[id];
+    const tid = parseInt(id, 10);
+    if (cat && e.c !== cat) continue;
+    if (hideExisting && existing.has(tid)) continue;
+    if (search) {
+      const hay = `${e.n} ${id} ${e.c || ''} ${e.e || ''}`.toLowerCase();
+      if (!hay.includes(search)) continue;
+    }
+    const isOwned = existing.has(tid);
+    count++;
+    const eff = e.e || '';
+    const req = e.r ? `领悟需求: ${e.r}` : '';
+    html += `<div class="rel-item" data-tag-pick="${tid}" style="cursor:pointer;flex-direction:column;align-items:stretch;gap:2px;${isOwned ? 'opacity:0.4' : ''}" title="${isOwned ? '已拥有' : (req || '点击添加')}">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="rid">#${tid}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.n)}</span>
+        ${e.c ? `<span style="font-size:9px;color:var(--ink-soft);opacity:0.65">${escapeHtml(e.c)}</span>` : ''}
+        ${isOwned ? '<span style="font-size:9px;color:var(--vermillion)">已有</span>' : ''}
+      </div>
+      ${eff ? `<div style="font-size:10px;color:var(--ink-soft);opacity:0.7;line-height:1.35;padding-left:2px">${escapeHtml(eff)}</div>` : ''}
+    </div>`;
+  }
+  list.innerHTML = html || `<div class="rel-empty" style="grid-column:1/-1;text-align:center;padding:30px">无匹配天赋</div>`;
+  list.querySelectorAll('[data-tag-pick]').forEach(el => {
+    el.addEventListener('click', () => {
+      const tid = parseInt(el.dataset.tagPick, 10);
+      const hero = tagModalCtx.hero;
+      if (!hero.heroTagData) hero.heroTagData = [];
+      // 检查是否已存在
+      if (hero.heroTagData.some(t => t.tagID === tid)) {
+        if (!confirm(`该人物已有此天赋。确定再添加一份？`)) return;
+      }
+      hero.heroTagData.push({ tagID: tid, leftTime: -1, sourceHero: null });
+      markDirty();
+      renderDetail();
+      // 刷新列表里的 已有 标记
+      renderTagList();
+      const name = TAG_DICT[tid]?.n || `tag ${tid}`;
+      showToast(`已添加: ${name}`);
+    });
+  });
+}
+document.getElementById('tagModalClose').addEventListener('click', closeTagModal);
+document.getElementById('tagModalCancel').addEventListener('click', closeTagModal);
+document.getElementById('tagModal').addEventListener('click', e => { if (e.target.id === 'tagModal') closeTagModal(); });
+document.getElementById('tagSearch').addEventListener('input', renderTagList);
+document.getElementById('tagCatFilter').addEventListener('change', renderTagList);
+document.getElementById('tagHideExisting').addEventListener('change', renderTagList);
+// ESC 关闭天赋 modal（已有的全局 ESC 只关 jsonModal，这里加一个）
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && tagModalCtx) closeTagModal();
+});
+
+// === 装备属性编辑 modal ===
+let attrModalCtx = null; // { hero, target, title, groups, extraHeader }
+// 通用打开。groups: [{ key, label, getDict, ensure }]，每个 dict 是 {属性ID: 数值} 对象引用
+function openAttrModal(opts) {
+  // 兜底初始化每个组的 dict
+  for (const g of opts.groups) {
+    if (g.ensure) g.ensure();
+  }
+  attrModalCtx = opts;
+  document.getElementById('attrModalTitle').textContent = opts.title || '编辑属性';
+  document.getElementById('attrModal').classList.add('show');
+  renderAttrModal();
+}
+// 兼容旧调用：openAttrModalForItem(hero, item, kind, idx)
+function openAttrModalForItem(hero, item, kind, idx) {
+  if (!item.equipmentData) {
+    showToast('该物品不是装备', true);
+    return;
+  }
+  openAttrModal({
+    hero,
+    target: item,
+    title: `编辑属性: ${item.name || '(无名)'} [#${idx}]`,
+    extraHeader: () => {
+      const enhanceLv = item.equipmentData.enhanceLv ?? 0;
+      const equiped = item.equipmentData.equiped === true;
+      return `
+        <span>强化等级 enhanceLv: <input type="number" data-attr-extra-input="enhanceLv" value="${enhanceLv}" style="width:50px;padding:1px 4px;border:1px solid var(--paper-line);background:transparent;font-family:inherit;font-size:11px;color:var(--ink);outline:none"></span>
+        <span>装备中: ${equiped ? '✓' : '✗'}</span>
+      `;
+    },
+    onExtraInput: (key, val) => {
+      if (key === 'enhanceLv') {
+        item.equipmentData.enhanceLv = Number.isNaN(parseInt(val, 10)) ? 0 : parseInt(val, 10);
+      }
+    },
+    groups: [
+      {
+        key: 'base',
+        label: '基础属性 (固定)',
+        en: 'baseAddData',
+        ensure: () => {
+          if (!item.equipmentData.baseAddData) item.equipmentData.baseAddData = { heroSpeAddData: {} };
+          if (!item.equipmentData.baseAddData.heroSpeAddData) item.equipmentData.baseAddData.heroSpeAddData = {};
+        },
+        getDict: () => item.equipmentData.baseAddData.heroSpeAddData,
+      },
+      {
+        key: 'extra',
+        label: '附加词条 (可洗练)',
+        en: 'extraAddData',
+        ensure: () => {
+          if (!item.equipmentData.extraAddData) item.equipmentData.extraAddData = { heroSpeAddData: {} };
+          if (!item.equipmentData.extraAddData.heroSpeAddData) item.equipmentData.extraAddData.heroSpeAddData = {};
+        },
+        getDict: () => item.equipmentData.extraAddData.heroSpeAddData,
+      },
+    ],
+  });
+}
+// 按武学表计算武功效果（与游戏一致：数值 ×(1+0.1×等级)；击退、拉近不随等级变化；运功效果里的内力上限再 ×2）
+const ATTR_ID_BY_NAME = (() => { const m = {}; for (const [id, e] of Object.entries(ATTR_DICT)) if (!(e.n in m)) m[e.n] = id; return m; })();
+function calcKungfuEffect(skillID, lv, which) {
+  const e = KF_DICT[String(skillID)] || {};
+  const src = which === 'eq' ? e.eq : e.us;
+  const out = {};
+  if (!src) return out;
+  for (const part of src.split(';')) {
+    const m = part.match(/^(.+?)([+-]?[\d.]+)$/);
+    if (!m) continue;
+    const id = ATTR_ID_BY_NAME[m[1]];
+    if (id === undefined) continue;
+    let v = parseFloat(m[2]);
+    if (m[1] !== '击退' && m[1] !== '拉近') v *= 1 + 0.1 * (lv || 0);
+    if (which === 'eq' && m[1] === '内力上限') v *= 2;
+    out[id] = Math.round(v * 10000) / 10000;
+  }
+  return out;
+}
+// 武功属性编辑
+function openAttrModalForKungfu(hero, sk, kfIdx) {
+  const derived = sk.speEquipData === undefined && sk.speUseData === undefined;   // 新版存档：这两项由游戏计算
+  const skName = lookupSkill(sk.skillID).n;
+  openAttrModal({
+    hero,
+    target: sk,
+    title: `编辑武功属性: ${skName} (lv ${sk.lv ?? 0}) [武功 #${kfIdx}]`,
+    extraHeader: () => `
+      <span>等级 lv: <input type="number" data-attr-extra-input="lv" value="${sk.lv ?? 0}" min="0" max="10" style="width:50px;padding:1px 4px;border:1px solid var(--paper-line);background:transparent;font-family:inherit;font-size:11px;color:var(--ink);outline:none"></span>
+      <span>实战经验: <input type="number" data-attr-extra-input="fightExp" value="${sk.fightExp ?? 0}" style="width:80px;padding:1px 4px;border:1px solid var(--paper-line);background:transparent;font-family:inherit;font-size:11px;color:var(--ink);outline:none"></span>
+      <span>研习经验: <input type="number" data-attr-extra-input="bookExp" value="${sk.bookExp ?? 0}" style="width:80px;padding:1px 4px;border:1px solid var(--paper-line);background:transparent;font-family:inherit;font-size:11px;color:var(--ink);outline:none"></span>
+      ${sk.equiped === undefined ? '' : `<span>装备中: ${sk.equiped ? '✓' : '✗'}</span>`}
+    `,
+    onExtraInput: (key, val) => {
+      const v = parseFloat(val);
+      sk[key] = Number.isNaN(v) ? 0 : v;
+      if (derived && key === 'lv') refreshDerivedAttrGroups();
+    },
+    groups: [
+      derived ? {
+        key: 'base', readOnly: true,
+        label: '基础属性 (随等级提升，游戏自动计算)',
+        en: 'speEquipData',
+        getDict: () => calcKungfuEffect(sk.skillID, sk.lv, 'eq'),
+      } : {
+        key: 'base',
+        label: '基础属性 (随等级提升)',
+        en: 'speEquipData',
+        ensure: () => {
+          if (!sk.speEquipData) sk.speEquipData = { heroSpeAddData: {} };
+          if (!sk.speEquipData.heroSpeAddData) sk.speEquipData.heroSpeAddData = {};
+        },
+        getDict: () => sk.speEquipData.heroSpeAddData,
+      },
+      {
+        key: 'extra',
+        label: '突破属性 (满级后获得)',
+        en: 'extraAddData',
+        ensure: () => {
+          if (!sk.extraAddData) sk.extraAddData = { heroSpeAddData: {} };
+          if (!sk.extraAddData.heroSpeAddData) sk.extraAddData.heroSpeAddData = {};
+        },
+        getDict: () => sk.extraAddData.heroSpeAddData,
+      },
+      derived ? {
+        key: 'use', readOnly: true,
+        label: '招式效果 (释放招式时，游戏自动计算)',
+        en: 'speUseData',
+        getDict: () => calcKungfuEffect(sk.skillID, sk.lv, 'us'),
+      } : {
+        key: 'use',
+        label: '招式效果 (释放招式时)',
+        en: 'speUseData',
+        ensure: () => {
+          if (!sk.speUseData) sk.speUseData = { heroSpeAddData: {} };
+          if (!sk.speUseData.heroSpeAddData) sk.speUseData.heroSpeAddData = {};
+        },
+        getDict: () => sk.speUseData.heroSpeAddData,
+      },
+    ],
+  });
+}
+// 等级改动后只重画只读的计算组（不重画整个弹窗，避免输入框失去焦点）
+function refreshDerivedAttrGroups() {
+  if (!attrModalCtx) return;
+  const keep = document.activeElement;
+  const body = document.getElementById('attrModalBody');
+  renderAttrModal();
+  // renderAttrModal 会重建整个弹窗，把焦点还给等级输入框
+  const lv = body.querySelector('[data-attr-extra-input="lv"]');
+  if (lv && keep && keep.dataset && keep.dataset.attrExtraInput === 'lv') { lv.focus(); const n = lv.value.length; try { lv.setSelectionRange(n, n); } catch (e) {} }
+}
+function closeAttrModal() {
+  document.getElementById('attrModal').classList.remove('show');
+  attrModalCtx = null;
+}
+function renderAttrModal() {
+  if (!attrModalCtx) return;
+  const { groups, extraHeader } = attrModalCtx;
+
+  function renderGroup(g) {
+    const dict = g.getDict();
+    const entries = Object.entries(dict).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+    let body = '';
+    if (entries.length === 0) {
+      body = '<div class="rel-empty" style="padding:14px 0;font-size:11px">无</div>';
+    } else {
+      body = entries.map(([id, val]) => {
+        const e = lookupAttr(parseInt(id));
+        const name = e?.n || `attr ${id}`;
+        const isPct = e?.p === 1;
+        const displayVal = isPct ? (val * 100) : val;
+        const step = isPct ? '0.5' : (Math.abs(val) < 1 ? '0.1' : '1');
+        if (g.readOnly) return `<div class="rel-item" data-attr-row="${g.key}-${id}">
+          <span class="rid">#${id}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(name)}</span>
+          <span style="width:80px;text-align:right;font-size:12px">${+displayVal.toFixed(4)}</span>
+          ${isPct ? '<span style="font-size:10px;color:var(--ink-soft);width:14px">%</span>' : '<span style="width:14px"></span>'}
+          <span style="width:22px"></span>
+        </div>`;
+        return `<div class="rel-item" data-attr-row="${g.key}-${id}">
+          <span class="rid">#${id}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(name)}</span>
+          <input type="number" data-attr-input="${g.key}" data-attr-id="${id}" data-attr-pct="${isPct ? 1 : 0}" value="${displayVal}" step="${step}" style="width:80px;padding:2px 6px;border:1px solid var(--paper-line);background:transparent;font-family:inherit;font-size:12px;color:var(--ink);outline:none;text-align:right">
+          ${isPct ? '<span style="font-size:10px;color:var(--ink-soft);width:14px">%</span>' : '<span style="width:14px"></span>'}
+          <button class="icon-btn" data-attr-del="${g.key}-${id}" title="删除">✕</button>
+        </div>`;
+      }).join('');
+    }
+    return `
+      <div class="section" style="margin-top:12px" data-attr-group="${g.key}">
+        <div class="section-head">
+          <div class="section-mark"></div>
+          <div class="section-title">${escapeHtml(g.label)} (${entries.length})</div>
+          <div class="section-actions">
+            ${g.readOnly ? '<span style="font-size:11px;color:var(--ink-soft)">只读：新版存档不保存，由游戏按武学和等级计算</span>' : `<button class="btn btn-mini" data-attr-add="${g.key}">+ 添加</button>`}
+          </div>
+          <div class="section-title-en">${escapeHtml(g.en)}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px">${body}</div>
+      </div>
+    `;
+  }
+
+  const headerHtml = extraHeader ? extraHeader() : '';
+  document.getElementById('attrModalBody').innerHTML = `
+    ${headerHtml ? `<div style="display:flex;gap:18px;align-items:center;font-size:11px;color:var(--ink-soft);padding:6px 0;flex-wrap:wrap">${headerHtml}</div>` : ''}
+    ${groups.map(renderGroup).join('')}
+  `;
+
+  // 找 dict by key
+  const findDict = key => {
+    const g = attrModalCtx.groups.find(g => g.key === key);
+    return g ? g.getDict() : null;
+  };
+
+  // 绑定属性数值输入
+  document.querySelectorAll('[data-attr-input]').forEach(el => {
+    el.addEventListener('input', () => {
+      const key = el.dataset.attrInput;
+      const id = el.dataset.attrId;
+      const isPct = el.dataset.attrPct === '1';
+      let v = parseFloat(el.value);
+      if (Number.isNaN(v)) v = 0;
+      const stored = isPct ? (v / 100) : v;
+      const dict = findDict(key);
+      if (dict) { dict[id] = stored; markDirty(); }
+    });
+  });
+  // 删除
+  document.querySelectorAll('[data-attr-del]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const [key, id] = btn.dataset.attrDel.split('-');
+      const dict = findDict(key);
+      if (dict) { delete dict[id]; markDirty(); renderAttrModal(); }
+    });
+  });
+  // 添加
+  document.querySelectorAll('[data-attr-add]').forEach(btn => {
+    btn.addEventListener('click', () => openAttrPickModal(btn.dataset.attrAdd));
+  });
+  // 额外字段（强化等级 / 武功 lv 等）
+  document.querySelectorAll('[data-attr-extra-input]').forEach(el => {
+    el.addEventListener('input', () => {
+      attrModalCtx.onExtraInput?.(el.dataset.attrExtraInput, el.value);
+      markDirty();
+    });
+  });
+}
+
+// === 词条选择 modal (二级) ===
+let attrPickCtx = null; // dataKey: 'base' | 'extra'
+function openAttrPickModal(dataKey) {
+  attrPickCtx = dataKey;
+  document.getElementById('attrPickSearch').value = '';
+  document.getElementById('attrPickHideExisting').checked = true;
+  document.getElementById('attrPickModal').classList.add('show');
+  renderAttrPickList();
+  setTimeout(() => document.getElementById('attrPickSearch').focus(), 50);
+}
+function closeAttrPickModal() {
+  document.getElementById('attrPickModal').classList.remove('show');
+  attrPickCtx = null;
+}
+function renderAttrPickList() {
+  if (!attrPickCtx || !attrModalCtx) return;
+  const dataKey = attrPickCtx;
+  const group = attrModalCtx.groups.find(g => g.key === dataKey);
+  if (!group) return;
+  const search = document.getElementById('attrPickSearch').value.trim().toLowerCase();
+  const hideExisting = document.getElementById('attrPickHideExisting').checked;
+  const dict = group.getDict();
+  const existing = new Set(Object.keys(dict).map(k => parseInt(k)));
+  const list = document.getElementById('attrPickList');
+  let html = '';
+  let count = 0;
+  for (const id in ATTR_DICT) {
+    const e = ATTR_DICT[id];
+    const aid = parseInt(id, 10);
+    if (hideExisting && existing.has(aid)) continue;
+    if (search) {
+      const hay = `${e.n} ${id}`.toLowerCase();
+      if (!hay.includes(search)) continue;
+    }
+    const owned = existing.has(aid);
+    count++;
+    html += `<div class="rel-item" data-attr-pick="${aid}" style="cursor:pointer;${owned ? 'opacity:0.4' : ''}" title="${owned ? '已有' : '点击添加'}">
+      <span class="rid">#${aid}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(e.n)}</span>
+      ${e.p === 1 ? '<span style="font-size:9px;color:var(--ink-soft);opacity:0.65">%</span>' : ''}
+    </div>`;
+  }
+  list.innerHTML = html || `<div class="rel-empty" style="grid-column:1/-1;text-align:center;padding:30px">无匹配词条</div>`;
+  list.querySelectorAll('[data-attr-pick]').forEach(el => {
+    el.addEventListener('click', () => {
+      const aid = el.dataset.attrPick;
+      const grp = attrModalCtx.groups.find(g => g.key === attrPickCtx);
+      if (!grp) return;
+      const d = grp.getDict();
+      if (d.hasOwnProperty(aid)) {
+        if (!confirm('该词条已存在。再添加会覆盖。确定？')) return;
+      }
+      d[aid] = 0;
+      markDirty();
+      renderAttrModal();
+      closeAttrPickModal();
+      const e = ATTR_DICT[aid];
+      showToast(`已添加: ${e?.n || 'attr ' + aid}`);
+    });
+  });
+}
+document.getElementById('attrModalClose').addEventListener('click', closeAttrModal);
+document.getElementById('attrModalDone').addEventListener('click', closeAttrModal);
+document.getElementById('attrModal').addEventListener('click', e => { if (e.target.id === 'attrModal') closeAttrModal(); });
+document.getElementById('attrPickClose').addEventListener('click', closeAttrPickModal);
+document.getElementById('attrPickCancel').addEventListener('click', closeAttrPickModal);
+document.getElementById('attrPickModal').addEventListener('click', e => { if (e.target.id === 'attrPickModal') closeAttrPickModal(); });
+document.getElementById('attrPickSearch').addEventListener('input', renderAttrPickList);
+document.getElementById('attrPickHideExisting').addEventListener('change', renderAttrPickList);
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (attrPickCtx) { closeAttrPickModal(); return; }
+  if (attrModalCtx) closeAttrModal();
+});
+
+const dropzone = document.getElementById('dropzone');
+['dragenter','dragover'].forEach(ev => {
+  document.addEventListener(ev, e => {
+    e.preventDefault();
+    if (state.rawData || area.data) return;
+    dropzone.classList.add('dragging');
+  });
+});
+['dragleave','drop'].forEach(ev => {
+  document.addEventListener(ev, e => {
+    e.preventDefault();
+    if (ev === 'dragleave' && e.relatedTarget) return;
+    dropzone.classList.remove('dragging');
+  });
+});
+document.addEventListener('drop', async e => {
+  e.preventDefault();
+  if (state.rawData || area.data) return;
+  const item = e.dataTransfer.items?.[0];
+  // 尝试拿 FileSystem handle（Chrome/Edge），有 handle 就能直接覆盖原文件
+  if (item && item.getAsFileSystemHandle) {
+    try {
+      const handle = await item.getAsFileSystemHandle();
+      if (handle && handle.kind === 'directory') { openDirectory(handle); return; }
+      if (handle && handle.kind === 'file') {
+        state.fileHandle = handle;
+        const f = await handle.getFile();
+        loadFile(f);
+        return;
+      }
+    } catch (err) { /* fallback */ }
+  }
+  const f = e.dataTransfer.files[0];
+  if (f) loadFile(f);
+});
+document.getElementById('btnPick').addEventListener('click', async () => {
+  // 优先用 showOpenFilePicker 拿到 handle
+  if (window.showOpenFilePicker) {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: '龙胤立志传 存档（Hero / Save）', accept: { '*/*': [''] } }],
+        excludeAcceptAllOption: false,
+      });
+      state.fileHandle = handle;
+      const f = await handle.getFile();
+      loadFile(f);
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      // fallback 到普通 input
+    }
+  }
+  document.getElementById('filePick').click();
+});
+document.getElementById('filePick').addEventListener('change', e => {
+  const f = e.target.files[0];
+  state.fileHandle = null;
+  if (f) loadFile(f);
+});
+document.getElementById('btnSave').addEventListener('click', saveFile);
+document.getElementById('btnReload').addEventListener('click', async () => {
+  if (state.slot) { await reloadSlot(); return; }
+  // 有 file handle：直接重新读取原文件，丢弃所有未保存修改
+  if (state.fileHandle) {
+    if ((state.dirtyIdx.size > 0 || (area.data && areaDirty() > 0)) && !confirm('将丢弃所有未保存的修改，从磁盘重新读取原文件？')) return;
+    try {
+      if (state.fileHandle.queryPermission) {
+        const perm = await state.fileHandle.queryPermission({ mode: 'read' });
+        if (perm !== 'granted') {
+          const req = await state.fileHandle.requestPermission({ mode: 'read' });
+          if (req !== 'granted') throw new Error('未授予读取权限');
+        }
+      }
+      const handle = state.fileHandle;
+      const f = await handle.getFile();
+      await loadFile(f);
+      state.fileHandle = handle; // loadFile 不动 handle，确保保留
+      showToast(`已重新载入: ${f.name}`);
+      return;
+    } catch (e) {
+      showToast('重新读取失败：' + e.message, true);
+      // 失败则继续走下面的回到拖放界面
+    }
+  }
+  // 无 handle（旧浏览器或 input 选的文件，无法静默重读）：回到拖放界面
+  if ((state.dirtyIdx.size > 0 || (area.data && areaDirty() > 0)) && !confirm('有未保存的修改，确定返回？')) return;
+  if (state.mode === 'area') leaveAreaMode();
+  state.rawData = null;
+  state.selectedIdx = -1;
+  state.dirtyIdx.clear();
+  state.fileHandle = null;
+  document.getElementById('workspace').classList.add('hidden');
+  document.getElementById('dropzone').classList.remove('hidden');
+  document.getElementById('btnReload').disabled = true;
+  document.getElementById('btnSave').disabled = true;
+  document.getElementById('fileInfo').textContent = '';
+  document.getElementById('filePick').value = '';
+});
+document.getElementById('searchInput').addEventListener('input', renderRoster);
+document.getElementById('forceFilter').addEventListener('change', e => {
+  state.rosterForce = e.target.value;
+  renderRoster();
+});
+document.getElementById('sexFilter').addEventListener('change', e => {
+  state.rosterSex = e.target.value;
+  renderRoster();
+});
+document.getElementById('talentFilter').addEventListener('change', e => {
+  state.rosterTalent = e.target.value;
+  renderRoster();
+});
+document.getElementById('rosterFilters').addEventListener('click', e => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  // 独立开关：隐藏地点不明
+  if (chip.id === 'chipHideNoArea') {
+    state.rosterHideNoArea = !state.rosterHideNoArea;
+    chip.classList.toggle('active', state.rosterHideNoArea);
+    renderRoster();
+    return;
+  }
+  // 单选组（all/alive/player/dirty）
+  if (!chip.dataset.filter) return;
+  state.rosterFilter = chip.dataset.filter;
+  document.querySelectorAll('.filter-chip[data-filter]').forEach(c => c.classList.toggle('active', c === chip));
+  renderRoster();
+});
+// =====================================================================================
+// 存档文件容器：旧版存档是纯 JSON；游戏 2026-11 版（1.1.3）起存档是 gzip 压缩的 JSON。
+// 读取时自动识别，写回时保持原来的格式（gzip 头部字节也照抄原文件）。
+// =====================================================================================
+const isGzipBytes = u8 => u8.length >= 2 && u8[0] === 0x1f && u8[1] === 0x8b;
+
+async function readSaveText(file) {
+  const u8 = new Uint8Array(await file.arrayBuffer());
+  if (!isGzipBytes(u8)) return { text: new TextDecoder('utf-8').decode(u8), fmt: { gz: false } };
+  if (typeof DecompressionStream === 'undefined') throw new Error('这个存档是压缩格式，需要新版 Edge / Chrome 才能读取');
+  const ds = new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'));
+  const text = await new Response(ds).text();
+  return { text, fmt: { gz: true, head: u8.slice(0, 10) } };
+}
+
+// 返回要写入磁盘的数据（字符串或 Uint8Array）
+async function encodeSaveText(text, fmt) {
+  if (!fmt || !fmt.gz) return text;
+  const cs = new Blob([new TextEncoder().encode(text)]).stream().pipeThrough(new CompressionStream('gzip'));
+  const out = new Uint8Array(await new Response(cs).arrayBuffer());
+  // 头部 MTIME/XFL/OS 照抄游戏原文件（不参与 CRC 校验）
+  if (fmt.head && out.length > 10 && (out[3] & 0x1e) === 0 && (fmt.head[3] & 0x1e) === 0) out.set(fmt.head.slice(4, 10), 4);
+  // 校验：解压回来必须和原文一致
+  const back = await new Response(new Blob([out]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  if (back !== text) throw new Error('压缩校验失败，未写入');
+  return out;
+}
+
+
+// =====================================================================================
+// 区域模式：读取 Save 文件，编辑城市 / 驻地 / 村镇的可建造地块
+//   · 点「城墙圈 / 墙外 / 残垣」把它变成空地；再点一次还原
+//   · 城墙会自动沿着新边界往外推（墙外格子变成城墙圈并补地面贴图）
+//   · 保存时只替换被改动的地块对象，存档其余内容一字不动
+// =====================================================================================
+const BUILDING_NAMES = __BNAMES__;
+const AREA_TYPE_NAMES = { 0: '城市', 1: '村镇', 2: '门派' };
+
+const area = {
+  file: null,       // { name, size }
+  text: null,       // 原始文本
+  data: null,       // JSON.parse 结果
+  spans: null,      // spans[areaIdx][tileIdx] = [start, end)  (文本中的位置)
+  sel: -1,          // 选中的区域下标
+  edits: new Map(), // areaIdx -> Set(tileIdx)  用户改成空地的格子
+  bedits: new Map(), // areaIdx -> Map(tileIdx -> 建筑对象 | null)  新建 / 修改 / 删除的建筑
+  pick: -1,         // 正在编辑的地块
+  filter: 'all',
+  search: '',
+};
+
+// ---------- 文本扫描：找出 Areas[*].areaTiles[*] 在原文中的位置 ----------
+function scanAreaTileSpans(text) {
+  let i = 0;
+  const n = text.length;
+  const ws = () => { while (i < n) { const c = text.charCodeAt(i); if (c === 32 || c === 10 || c === 13 || c === 9) i++; else break; } };
+  const readStr = () => {
+    if (text[i] !== '"') throw new Error('扫描存档失败 @' + i);
+    let j = i + 1, s = '';
+    while (true) {
+      const k = text.indexOf('"', j);
+      if (k < 0) throw new Error('字符串未闭合');
+      let b = 0, p = k - 1;
+      while (p >= j && text[p] === '\\') { b++; p--; }
+      if (b % 2 === 0) { s = text.slice(i + 1, k); i = k + 1; return s; }
+      j = k + 1;
+    }
+  };
+  const skip = () => {
+    ws();
+    const c = text[i];
+    if (c === '"') { readStr(); return; }
+    if (c === '{' || c === '[') {
+      let depth = 0;
+      while (i < n) {
+        const ch = text[i];
+        if (ch === '"') { readStr(); continue; }
+        if (ch === '{' || ch === '[') depth++;
+        else if (ch === '}' || ch === ']') { depth--; if (depth === 0) { i++; return; } }
+        i++;
+      }
+      throw new Error('括号未闭合');
+    }
+    while (i < n && ',}] \n\r\t'.indexOf(text[i]) < 0) i++;
+  };
+  const eachInObject = (fn) => {
+    ws(); if (text[i] !== '{') throw new Error('预期对象 @' + i); i++;
+    ws(); if (text[i] === '}') { i++; return; }
+    while (true) {
+      ws(); const k = readStr(); ws();
+      if (text[i] !== ':') throw new Error('预期冒号 @' + i); i++;
+      ws(); fn(k);
+      ws();
+      if (text[i] === ',') { i++; continue; }
+      if (text[i] === '}') { i++; return; }
+      throw new Error('对象格式错误 @' + i);
+    }
+  };
+  const eachInArray = (fn) => {
+    ws(); if (text[i] !== '[') throw new Error('预期数组 @' + i); i++;
+    ws(); if (text[i] === ']') { i++; return; }
+    let idx = 0;
+    while (true) {
+      ws(); fn(idx++);
+      ws();
+      if (text[i] === ',') { i++; continue; }
+      if (text[i] === ']') { i++; return; }
+      throw new Error('数组格式错误 @' + i);
+    }
+  };
+  if (text.charCodeAt(0) === 0xFEFF) i = 1;
+  const spans = [];
+  eachInObject(key => {
+    if (key !== 'Areas') { skip(); return; }
+    eachInArray(ai => {
+      const tiles = [];
+      eachInObject(k2 => {
+        if (k2 !== 'areaTiles') { skip(); return; }
+        eachInArray(() => { ws(); const s = i; skip(); tiles.push([s, i]); });
+      });
+      spans.push(tiles);
+    });
+  });
+  return spans;
+}
+
+// ---------- 地块状态 ----------
+// kind: void(-3) gate(-2) wall(-1) empty ruin building road hall(2)
+function tileKind(t) {
+  switch (t.tileType) {
+    case -3: return 'void';
+    case -2: return 'gate';
+    case -1: return 'wall';
+    case 1: return 'road';
+    case 2: return 'hall';
+    case 0:
+      if (!t.building) return 'empty';
+      return t.building.buildingID === -1 ? 'ruin' : 'building';
+    default: return 'other';
+  }
+}
+const isPlayable = k => k === 'empty' || k === 'ruin' || k === 'building' || k === 'road' || k === 'hall';
+const groundSprite = (r, c) => ((r + c) % 2 === 0 ? 'Tile_GrayGround' : 'Tile_WhiteGround');
+
+// 计算当前（含修改）的整张图：返回每格 { kind, orig, changed, pushed }
+function computeArea(ai) {
+  const a = area.data.Areas[ai];
+  const W = a.mapWidth, H = a.mapHeight, T = a.areaTiles;
+  const set = area.edits.get(ai) || new Set();
+  const cells = T.map((t, idx) => ({ idx, r: t.row, c: t.column, orig: tileKind(t), kind: tileKind(t), changed: false, pushed: false, t }));
+  for (const idx of set) { cells[idx].kind = 'empty'; cells[idx].changed = true; }
+  // 城墙外推：新改出来的空地周围（含斜角）的墙外格(-3)变成城墙圈
+  for (const idx of set) {
+    const src = cells[idx];
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      const rr = src.r + dr, cc = src.c + dc;
+      if (rr < 0 || cc < 0 || rr >= H || cc >= W) continue;
+      const n = cells[rr * W + cc];
+      if (n.orig === 'void' && !n.changed) { n.kind = 'wall'; n.pushed = true; }
+    }
+  }
+  const bset = area.bedits.get(ai);
+  if (bset) for (const [idx, b] of bset) {
+    const c = cells[idx];
+    c.bedit = true; c.b = b;
+    c.kind = b ? (b.buildingID === -1 ? 'ruin' : 'building') : 'empty';
+  }
+  return { a, W, H, cells };
+}
+// 当前（含修改）的建筑对象
+const cellBuilding = c => (c.bedit ? c.b : (c.changed ? null : (c.t.building || null)));
+
+function buildableCount(cells, useOrig) {
+  return cells.filter(x => { const k = useOrig ? x.orig : x.kind; return k === 'empty' || k === 'ruin' || k === 'building'; }).length;
+}
+
+// 能否把这一格变成空地；返回 null 表示可以，否则返回原因
+function whyNot(model, cell) {
+  const { W, H, cells } = model;
+  if (cell.orig === 'building') return '这里已经有建筑';
+  if (cell.orig === 'empty') return '这里本来就是空地';
+  if (cell.orig === 'road' || cell.orig === 'hall') return '道路不能改';
+  if (cell.orig === 'gate') return '城门不能改';
+  if (cell.orig === 'ruin') return null;
+  // wall / void
+  if (cell.r === 0 || cell.c === 0 || cell.r === H - 1 || cell.c === W - 1) return '地图最外圈要留给城墙';
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+    const rr = cell.r + dr, cc = cell.c + dc;
+    if (rr < 0 || cc < 0 || rr >= H || cc >= W) continue;
+    if (cells[rr * W + cc].orig === 'gate') return '城门周围一圈要保留为城墙，才能和城门接上';
+  }
+  const touch = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dr, dc]) => {
+    const rr = cell.r + dr, cc = cell.c + dc;
+    if (rr < 0 || cc < 0 || rr >= H || cc >= W) return false;
+    return isPlayable(cells[rr * W + cc].kind);
+  });
+  if (!touch) return '只能紧挨着城内往外扩（上下左右至少有一格是城内）';
+  return null;
+}
+
+// ---------- 载入 ----------
+// 只初始化区域数据（槽位模式下与人物数据并存）
+function initAreaData(file, text, data) {
+  const spans = scanAreaTileSpans(text);
+  if (spans.length !== data.Areas.length) throw new Error('地块定位与区域数量不一致');
+  data.Areas.forEach((a, k) => {
+    if (spans[k].length !== a.areaTiles.length) throw new Error('区域 ' + a.areaName + ' 地块数量不一致');
+    if (a.areaTiles.length !== a.mapWidth * a.mapHeight) throw new Error('区域 ' + a.areaName + ' 尺寸与地块数不符');
+    a.areaTiles.forEach((t, i) => { if (i !== t.row * a.mapWidth + t.column) throw new Error('区域 ' + a.areaName + ' 地块排列与预期不同'); });
+  });
+  area.file = { name: file.name, size: file.size };
+  area.text = text; area.data = data; area.spans = spans;
+  area.keepNull = text.indexOf('":null') >= 0;   // 旧版存档会写出 null 字段，新版（1.1.3 起）省略
+  area.edits = new Map();
+  area.bedits = new Map();   // 建筑编辑：区域 → Map(地块下标 → 新建筑对象 | null=删除)
+  area.pick = -1;
+  if (area.sel < 0 || area.sel >= data.Areas.length) {
+    // 默认选玩家门派驻地（自立门户的门派），没有就选第一个
+    const f = data.Forces.find(x => x.replacedForce);
+    const k = f ? data.Areas.findIndex(a => a.areaID === f.mainAreaID) : -1;
+    area.sel = k >= 0 ? k : 0;
+  }
+}
+
+// 单文件方式打开 Save
+async function loadAreaMode(file, text, data) {
+  setLoading(true, '定位地块数据...');
+  await new Promise(r => setTimeout(r, 30));
+  initAreaData(file, text, data);
+  // Hero 模式状态清空
+  state.rawData = null; state.selectedIdx = -1; state.dirtyIdx.clear();
+  state.mode = 'area';
+  document.getElementById('fileInfo').textContent = `${file.name} · ${formatBytes(file.size)} · ${data.Areas.length} 个区域${state.fileHandle ? ' · 可直接覆盖' : ' · 只能另存'}`;
+  document.getElementById('dropzone').classList.add('hidden');
+  document.getElementById('workspace').classList.add('hidden');
+  document.getElementById('areaWorkspace').classList.remove('hidden');
+  document.getElementById('btnReload').disabled = false;
+  document.getElementById('btnSave').disabled = true;
+  updateSaveButton();
+  renderAreaList();
+  renderAreaDetail();
+  showToast(`已载入 ${data.Areas.length} 个区域（Save 存档）`);
+}
+
+function leaveAreaMode() {
+  area.data = null; area.text = null; area.spans = null; area.edits = new Map(); area.bedits = new Map(); area.pick = -1; area.sel = -1;
+  state.mode = 'hero';
+  document.getElementById('areaWorkspace').classList.add('hidden');
+}
+
+function areaDirty() {
+  let n = 0;
+  for (const s of area.edits.values()) n += s.size;
+  for (const s of area.bedits.values()) n += s.size;
+  return n;
+}
+const areaHasEdits = ai => (area.edits.get(ai)?.size || 0) + (area.bedits.get(ai)?.size || 0);
+function refreshAreaSaveButton() {
+  const heroDirty = state.slot ? state.dirtyIdx.size > 0 : false;
+  document.getElementById('btnSave').disabled = areaDirty() === 0 && !heroDirty;
+  updateSaveButton();
+}
+
+// ---------- 左侧区域名册 ----------
+function forceName(fid) {
+  const f = area.data.Forces.find(x => x.forceID === fid);
+  if (!f) return '';
+  return f.forceSetName || f.forceName;
+}
+function areaTitle(a) { return a.setAreaName || a.areaName; }
+
+function renderAreaList() {
+  const list = document.getElementById('areaList');
+  list.innerHTML = '';
+  const q = area.search.trim();
+  let shown = 0;
+  area.data.Areas.forEach((a, k) => {
+    if (area.filter !== 'all' && String(a.areaType) !== area.filter) return;
+    const owner = forceName(a.belongForceID);
+    if (q && !(areaTitle(a) + a.areaName + owner).includes(q)) return;
+    shown++;
+    const m = computeArea(k);
+    const el = document.createElement('div');
+    el.className = 'roster-item' + (k === area.sel ? ' active' : '') + (areaHasEdits(k) ? ' dirty' : '');
+    const before = buildableCount(m.cells, true), after = buildableCount(m.cells, false);
+    el.innerHTML = `
+      <div style="flex:1;overflow:hidden">
+        <div class="roster-item-name">${escapeHtml(areaTitle(a))}${a.setAreaName && a.setAreaName !== a.areaName ? `<span class="nick">${escapeHtml(a.areaName)}</span>` : ''}</div>
+        <div class="roster-item-force">${AREA_TYPE_NAMES[a.areaType] || '区域'}${owner ? ' · ' + escapeHtml(owner) : ''} · ${a.mapWidth}×${a.mapHeight}</div>
+      </div>
+      <div class="roster-item-meta">${after !== before ? `<span style="color:var(--vermillion)">${after}</span>` : after} 格</div>`;
+    el.addEventListener('click', () => { area.sel = k; area.pick = -1; renderAreaList(); renderAreaDetail(); });
+    list.appendChild(el);
+  });
+  document.getElementById('areaCount').textContent = `${shown} / ${area.data.Areas.length} 个区域`;
+}
+
+// ---------- 右侧地块图 ----------
+function cellLabel(cell) {
+  const t = cell.t;
+  switch (cell.kind) {
+    case 'gate': return '门';
+    case 'hall': return t.building ? (BUILDING_NAMES[t.building.buildingID] || '').slice(0, 2) : '中';
+    case 'road': return '';
+    case 'building': { const b = cellBuilding(cell); return (BUILDING_NAMES[b.buildingID] || ('#' + b.buildingID)).slice(0, 2); }
+    case 'ruin': return '残' + (cellBuilding(cell).lv ?? '');
+    case 'empty': return cell.changed ? '＋' : '';
+    default: return '';
+  }
+}
+function cellTitle(cell) {
+  const base = `第 ${cell.r} 行 · 第 ${cell.c} 列（存档坐标）`;
+  const names = { void: '墙外', wall: '城墙圈（不可建造）', gate: '城门', road: '道路', hall: '中心', empty: '空地', ruin: '残垣', building: '建筑' };
+  let s = names[cell.kind] || cell.kind;
+  const b = cell.kind === 'hall' ? cell.t.building : cellBuilding(cell);
+  if ((cell.kind === 'building' || cell.kind === 'hall') && b) s += '：' + (BUILDING_NAMES[b.buildingID] || '') + ' ' + (b.lv ?? '') + ' 级';
+  if (cell.kind === 'ruin') s += ' ' + (b.lv ?? '') + ' 级';
+  if (cell.bedit) s += cell.b ? '　← 建筑已修改' : '　← 建筑已删除';
+  if (cell.changed) s += '　← 由城墙 / 墙外改成可建造';
+  if (cell.kind === 'empty' || cell.kind === 'building' || cell.kind === 'ruin') s += '\n点击编辑';
+  if (cell.pushed) s += '　← 城墙自动外推';
+  return base + '\n' + s;
+}
+
+function renderAreaDetail() {
+  const box = document.getElementById('areaDetail');
+  if (area.sel < 0) { box.innerHTML = '<div class="detail-empty">从左侧选择一个区域</div>'; return; }
+  const m = computeArea(area.sel);
+  const { a, W, H, cells } = m;
+  const before = buildableCount(cells, true), after = buildableCount(cells, false);
+  const nEdits = areaHasEdits(area.sel);
+  const owner = forceName(a.belongForceID);
+  let grid = '';
+  for (let r = H - 1; r >= 0; r--) {           // 与游戏画面一致：高行号在上
+    for (let c = 0; c < W; c++) {
+      const cell = cells[r * W + c];
+      const editable = cell.kind === 'empty' || cell.kind === 'building' || cell.kind === 'ruin';
+      const ok = editable || cell.changed || !whyNot(m, cell);
+      const cls = ['tile', 'k-' + cell.kind];
+      if (cell.changed) cls.push('changed');
+      if (cell.bedit) cls.push('bedited');
+      if (cell.idx === area.pick) cls.push('picked');
+      if (cell.pushed) cls.push('pushed');
+      if (ok) cls.push('clickable');
+      grid += `<div class="${cls.join(' ')}" data-idx="${cell.idx}" title="${escapeHtml(cellTitle(cell))}">${escapeHtml(cellLabel(cell))}</div>`;
+    }
+  }
+  box.innerHTML = `
+    <div class="detail-head">
+      <div class="detail-name">${escapeHtml(areaTitle(a))}</div>
+      ${a.setAreaName && a.setAreaName !== a.areaName ? `<div class="detail-nick">原名 ${escapeHtml(a.areaName)}</div>` : ''}
+      <div class="detail-tags">
+        <span class="detail-tag">${AREA_TYPE_NAMES[a.areaType] || '区域'}</span>
+        ${owner ? `<span class="detail-tag">${escapeHtml(owner)}</span>` : ''}
+        <span class="detail-tag">${W} × ${H}</span>
+        <span class="detail-tag">区域 #${a.areaID}</span>
+      </div>
+    </div>
+    <div class="area-body">
+      <div class="area-mapwrap">
+        <div class="area-grid" style="grid-template-columns:repeat(${W}, var(--tile))">${grid}</div>
+        <div class="area-orient">↑ 与游戏画面方向一致</div>
+      </div>
+      <div class="area-side">
+        <div class="area-stat">
+          <div class="area-stat-num">${before}${after !== before ? ` → <b>${after}</b>` : ''}</div>
+          <div class="area-stat-label">可建造格（含已有建筑与残垣）${after !== before ? `　<span style="color:var(--vermillion)">+${after - before}</span>` : ''}</div>
+        </div>
+        ${renderTilePanel(m)}
+        <div class="area-actions">
+          <button class="btn btn-mini" id="aExpandRing" title="把城墙圈里所有能改的格子变成空地，城墙整体外推一格">城墙内圈 → 空地</button>
+          <button class="btn btn-mini" id="aExpandAll" title="在规则允许的范围内，把整张地图尽量扩成可建造">尽量扩满整张图</button>
+          <button class="btn btn-mini" id="aClearRuins" title="把所有残垣直接清成空地">清除全部残垣</button>
+          <button class="btn btn-mini btn-ghost" id="aResetArea" ${nEdits ? '' : 'disabled'}>撤销本区域修改</button>
+        </div>
+        <div class="area-legend">
+          <div><i class="tile k-empty"></i>空地</div>
+          <div><i class="tile k-ruin"></i>残垣（点击编辑）</div>
+          <div><i class="tile k-building"></i>建筑（点击编辑）</div>
+          <div><i class="tile k-wall clickable"></i>城墙圈（点击变空地）</div>
+          <div><i class="tile k-void clickable"></i>墙外（点击变空地）</div>
+          <div><i class="tile k-road"></i>道路</div>
+          <div><i class="tile k-gate"></i>城门</div>
+          <div><i class="tile k-empty changed"></i>本次改成的空地</div>
+          <div><i class="tile k-wall pushed"></i>城墙自动外推</div>
+          <div><i class="tile k-building bedited"></i>本次修改 / 新建的建筑</div>
+        </div>
+        <div class="area-note">
+          · 点城墙 / 墙外格子把它变成空地，再点一次还原；鼠标停在格子上可看详情。<br>
+          · 点空地 / 建筑 / 残垣可以新建、修改、删除建筑。<br>
+          · 地图最外圈、城门周围一圈不能改：城墙要画在那里。<br>
+          · 只能紧挨着城内往外扩，城墙会自动沿新边界外推。<br>
+          · 保存前请完全关闭游戏；建议先关闭 Steam 云存档。
+        </div>
+      </div>
+    </div>`;
+  box.querySelector('.area-grid').addEventListener('click', e => {
+    const el = e.target.closest('.tile'); if (!el) return;
+    const idx = parseInt(el.dataset.idx, 10);
+    const cell = m.cells[idx];
+    if (cell.kind === 'empty' || cell.kind === 'building' || cell.kind === 'ruin') {
+      area.pick = area.pick === idx ? -1 : idx; renderAreaDetail(); return;
+    }
+    toggleTile(idx);
+  });
+  bindTilePanel(m);
+  box.querySelector('#aExpandRing').addEventListener('click', () => bulk('ring'));
+  box.querySelector('#aExpandAll').addEventListener('click', () => bulk('all'));
+  box.querySelector('#aClearRuins').addEventListener('click', () => bulk('ruins'));
+  box.querySelector('#aResetArea').addEventListener('click', () => { area.edits.delete(area.sel); area.bedits.delete(area.sel); area.pick = -1; afterAreaEdit(); });
+}
+
+function editsOf(ai) { if (!area.edits.has(ai)) area.edits.set(ai, new Set()); return area.edits.get(ai); }
+function afterAreaEdit() {
+  if (area.edits.get(area.sel)?.size === 0) area.edits.delete(area.sel);
+  if (area.bedits.get(area.sel)?.size === 0) area.bedits.delete(area.sel);
+  renderAreaDetail(); renderAreaList(); refreshAreaSaveButton();
+}
+
+function toggleTile(idx) {
+  const set = editsOf(area.sel);
+  if (set.has(idx)) { set.delete(idx); area.bedits.get(area.sel)?.delete(idx); if (area.pick === idx) area.pick = -1; afterAreaEdit(); return; }
+  const m = computeArea(area.sel);
+  const why = whyNot(m, m.cells[idx]);
+  if (why) { showToast(why, true); return; }
+  set.add(idx); afterAreaEdit();
+}
+
+function bulk(mode) {
+  const set = editsOf(area.sel);
+  let added = 0;
+  if (mode === 'ruins') {
+    computeArea(area.sel).cells.forEach(c => { if (c.orig === 'ruin' && !set.has(c.idx)) { set.add(c.idx); added++; } });
+  } else {
+    // 反复扩张直到没有新格子可加（ring 模式只处理原本的城墙圈）
+    for (let guard = 0; guard < 64; guard++) {
+      const m = computeArea(area.sel);
+      let step = 0;
+      for (const c of m.cells) {
+        if (set.has(c.idx)) continue;
+        if (mode === 'ring' && c.orig !== 'wall') continue;
+        if (mode === 'all' && c.orig !== 'wall' && c.orig !== 'void') continue;
+        if (!whyNot(m, c)) { set.add(c.idx); step++; }
+      }
+      added += step;
+      if (step === 0) break;
+    }
+  }
+  afterAreaEdit();
+  showToast(added ? `新增 ${added} 块空地` : '没有可以再改的格子');
+}
+
+// ---------- 保存：只替换改动过的地块对象 ----------
+function buildAreaText() {
+  const patches = [];
+  const touched = new Set([...area.edits.keys(), ...area.bedits.keys()]);
+  touched.forEach(ai => {
+    const m = computeArea(ai);
+    for (const cell of m.cells) {
+      const t = cell.t;
+      let nt = null;
+      if (cell.changed) {
+        nt = Object.assign({}, t, { tileType: 0, building: null });
+        if (!area.keepNull) delete nt.building;   // 新版存档不写 null 字段
+        if (cell.orig === 'void') nt.spriteName = groundSprite(t.row, t.column);
+      } else if (cell.pushed) {
+        nt = Object.assign({}, t, { tileType: -1, spriteName: groundSprite(t.row, t.column) });
+      }
+      if (cell.bedit) {
+        nt = Object.assign({}, nt || t);
+        if (cell.b) nt.building = cell.b;
+        else if (area.keepNull) nt.building = null;
+        else delete nt.building;
+        nt = orderTileKeys(nt);
+      }
+      if (nt) patches.push([area.spans[ai][cell.idx][0], area.spans[ai][cell.idx][1], JSON.stringify(nt)]);
+    }
+  });
+  patches.sort((x, y) => y[0] - x[0]);
+  let out = area.text;
+  for (const [s, e, str] of patches) out = out.slice(0, s) + str + out.slice(e);
+  // 校验：能解析、区域与地块数量不变、改动都在
+  const chk = JSON.parse(out);
+  if (chk.Areas.length !== area.data.Areas.length) throw new Error('校验失败：区域数量变化');
+  touched.forEach(ai => {
+    const T = chk.Areas[ai].areaTiles;
+    if (T.length !== area.data.Areas[ai].areaTiles.length) throw new Error('校验失败：地块数量变化');
+    const bset = area.bedits.get(ai) || new Map();
+    for (const idx of (area.edits.get(ai) || [])) if (T[idx].tileType !== 0 || (T[idx].building != null && !bset.get(idx))) throw new Error('校验失败：改动未生效');
+    for (const [idx, b] of bset) {
+      const got = T[idx].building;
+      if (b ? (!got || got.buildingID !== b.buildingID || got.lv !== b.lv) : got != null) throw new Error('校验失败：建筑改动未生效');
+    }
+  });
+  return { text: out, count: patches.length };
+}
+
+function afterAreaSaved(newText) {
+  area.text = newText;
+  area.data = JSON.parse(newText);
+  area.spans = scanAreaTileSpans(newText);
+  area.edits = new Map(); area.bedits = new Map(); area.pick = -1;
+  renderAreaList(); renderAreaDetail(); refreshAreaSaveButton();
+}
+
+// ---------- 地块编辑面板（新建 / 修改 / 删除建筑）----------
+// 地块对象的字段顺序，按存档里已有的「有建筑的地块」来排（新建筑写进原本没有 building 字段的空地时用）
+let TILE_KEY_ORDER = null;
+function orderTileKeys(nt) {
+  if (!TILE_KEY_ORDER) {
+    for (const a of area.data.Areas) { const t = a.areaTiles.find(x => x.building); if (t) { TILE_KEY_ORDER = Object.keys(t); break; } }
+    if (!TILE_KEY_ORDER) TILE_KEY_ORDER = [];
+  }
+  const o = {};
+  for (const k of TILE_KEY_ORDER) if (k in nt) o[k] = nt[k];
+  for (const k of Object.keys(nt)) if (!(k in o)) o[k] = nt[k];
+  return o;
+}
+// 新建筑：字段结构照抄存档里已有的建筑，数值取初始值
+function newBuilding(a, buildingID, lv) {
+  const rates = a.areaTiles.filter(t => t.building && t.building.buildingID >= 0).map(t => t.building.resourceStoreRate).filter(x => typeof x === 'number').sort((x, y) => x - y);
+  return {
+    buildingID, lv,
+    buildTimeLeft: 0, upgradeTimeLeft: 0, destroyTimeLeft: 0, noCancel: false,
+    shopItemList: { heroID: -1, forceID: -1, money: 0, weight: 0.0, maxWeight: -1.0, allItem: [] },
+    missionDatas: [], produceRate: 1.0,
+    resourceStoreRate: rates.length ? rates[rates.length >> 1] : 2.0,
+    areaID: a.areaID, belongHeroID: -1, missionNumCount: 0, plotNumCount: 0, enemyMonth: 0,
+  };
+}
+function buildingOptions(sel) {
+  return Object.entries(BUILDING_NAMES).map(([id, n]) => `<option value="${id}"${+id === sel ? ' selected' : ''}>${escapeHtml(n)}（#${id}）</option>`).join('');
+}
+function renderTilePanel(m) {
+  if (area.pick < 0 || !m.cells[area.pick]) return '';
+  const cell = m.cells[area.pick];
+  const b = cellBuilding(cell);
+  const head = `<div class="tp-head">地块 第 ${cell.r} 行 · 第 ${cell.c} 列<button class="icon-btn" id="tpClose" title="关闭">✕</button></div>`;
+  const restore = cell.bedit ? `<button class="btn btn-mini btn-ghost" id="tpRestore">还原这一格</button>` : '';
+  if (!b) {
+    return `<div class="tile-panel">${head}
+      <div class="tp-row">空地${cell.changed ? '（本次扩建）' : ''}${cell.bedit ? '（建筑已删除）' : ''}</div>
+      <div class="tp-row"><label>新建</label><select id="tpType">${buildingOptions(-99)}</select></div>
+      <div class="tp-row"><label>等级</label><input type="number" id="tpLv" value="1" min="0" max="10"></div>
+      <div class="tp-btns"><button class="btn btn-mini" id="tpBuild">建造</button>${restore}</div>
+      <div class="tp-note">直接以成品出现（不需要建造时间）。门派特殊建筑、唯一建筑请自行注意不要重复。</div>
+    </div>`;
+  }
+  const owned = b.belongHeroID !== undefined && b.belongHeroID !== -1;
+  const isRuin = b.buildingID === -1;
+  return `<div class="tile-panel">${head}
+    <div class="tp-row"><label>建筑</label><select id="tpType">${isRuin ? '<option value="-1" selected>残垣（#-1）</option>' : ''}${buildingOptions(b.buildingID)}</select></div>
+    <div class="tp-row"><label>等级</label><input type="number" id="tpLv" value="${b.lv ?? 0}" min="0" max="10"></div>
+    <div class="tp-row"><label>产出效率</label><input type="number" id="tpProd" value="${b.produceRate ?? 1}" step="0.1"></div>
+    <div class="tp-row"><label>仓储系数</label><input type="number" id="tpStore" value="${b.resourceStoreRate ?? 1}" step="0.1"></div>
+    ${b.buildTimeLeft || b.upgradeTimeLeft || b.destroyTimeLeft ? `<div class="tp-row tp-dim">建造 / 升级 / 拆除剩余：${b.buildTimeLeft || 0} / ${b.upgradeTimeLeft || 0} / ${b.destroyTimeLeft || 0}<label style="width:auto;margin-left:8px"><input type="checkbox" id="tpFinish"> 立即完成</label></div>` : ''}
+    ${owned ? `<div class="tp-row tp-dim">属于人物 #${b.belongHeroID}（私宅等）</div>` : ''}
+    <div class="tp-btns">
+      <button class="btn btn-mini" id="tpApply">应用修改</button>
+      <button class="btn btn-mini" id="tpDelete" ${owned ? 'disabled title="属于人物的建筑（如私宅）不能删除"' : ''}>${isRuin ? '清除残垣' : '删除建筑'}</button>
+      ${restore}
+    </div>
+  </div>`;
+}
+function setBuildingEdit(idx, b) {
+  if (!area.bedits.has(area.sel)) area.bedits.set(area.sel, new Map());
+  area.bedits.get(area.sel).set(idx, b);
+  afterAreaEdit();
+}
+function bindTilePanel(m) {
+  const box = document.getElementById('areaDetail');
+  const q = id => box.querySelector('#' + id);
+  if (!q('tpClose')) return;
+  const cell = m.cells[area.pick];
+  const num = (id, d) => { const v = parseFloat(q(id)?.value); return Number.isNaN(v) ? d : v; };
+  q('tpClose').addEventListener('click', () => { area.pick = -1; renderAreaDetail(); });
+  q('tpRestore')?.addEventListener('click', () => { area.bedits.get(area.sel)?.delete(cell.idx); afterAreaEdit(); });
+  q('tpBuild')?.addEventListener('click', () => {
+    const id = parseInt(q('tpType').value, 10);
+    const lv = Math.max(0, Math.min(10, Math.round(num('tpLv', 1))));
+    setBuildingEdit(cell.idx, newBuilding(m.a, id, lv));
+    showToast('已新建：' + (BUILDING_NAMES[id] || '#' + id));
+  });
+  q('tpApply')?.addEventListener('click', () => {
+    const cur = cellBuilding(cell);
+    const nb = JSON.parse(JSON.stringify(cur));
+    nb.buildingID = parseInt(q('tpType').value, 10);
+    nb.lv = Math.max(0, Math.min(10, Math.round(num('tpLv', cur.lv ?? 0))));
+    nb.produceRate = num('tpProd', cur.produceRate ?? 1);
+    nb.resourceStoreRate = num('tpStore', cur.resourceStoreRate ?? 1);
+    if (q('tpFinish')?.checked) { nb.buildTimeLeft = 0; nb.upgradeTimeLeft = 0; nb.destroyTimeLeft = 0; }
+    setBuildingEdit(cell.idx, nb);
+    showToast('已修改建筑');
+  });
+  q('tpDelete')?.addEventListener('click', () => { setBuildingEdit(cell.idx, null); showToast('已删除建筑'); });
+}
+
+// 名册筛选 / 搜索
+document.getElementById('areaFilters').addEventListener('click', e => {
+  const chip = e.target.closest('.filter-chip'); if (!chip) return;
+  area.filter = chip.dataset.afilter;
+  document.querySelectorAll('#areaFilters .filter-chip').forEach(c => c.classList.toggle('active', c === chip));
+  renderAreaList();
+});
+document.getElementById('areaSearch').addEventListener('input', e => { area.search = e.target.value; renderAreaList(); });
+
+
+// 人物数据载入（单文件与文件夹模式共用）
+function applyHeroData(file, data) {
+    state.rawData = data;
+    state.heroIdMap = null; // 清缓存
+    // 选中第一个非 null
+    state.selectedIdx = data.findIndex(h => h !== null);
+    state.dirtyIdx.clear();
+    state.rosterForce = '';
+    state.rosterFilter = 'all';
+    state.rosterSex = '';
+    state.rosterTalent = '';
+    // 重置门派下拉，让它重建
+    const fSel = document.getElementById('forceFilter');
+    if (fSel) { fSel.dataset.built = ''; fSel.value = ''; }
+    const sSel = document.getElementById('sexFilter'); if (sSel) sSel.value = '';
+    const tSel = document.getElementById('talentFilter'); if (tSel) tSel.value = '';
+    state.rosterHideNoArea = true;
+    document.querySelectorAll('.filter-chip[data-filter]').forEach(c => c.classList.toggle('active', c.dataset.filter === 'all'));
+    const hideChip = document.getElementById('chipHideNoArea');
+    if (hideChip) hideChip.classList.add('active');
+    const validCount = data.filter(h => h !== null).length;
+    document.getElementById('fileInfo').textContent = `${file.name} · ${formatBytes(file.size)} · ${validCount} 人${validCount !== data.length ? ` (+${data.length - validCount} 空槽)` : ''}${state.fileHandle ? ' · 可直接覆盖' : ' · 只能另存'}`;
+    updateSaveButton();
+    document.getElementById('dropzone').classList.add('hidden');
+    document.getElementById('workspace').classList.remove('hidden');
+    document.getElementById('btnReload').disabled = false;
+    document.getElementById('btnSave').disabled = true;
+    renderRoster();
+    renderDetail();
+    showToast(`已载入 ${validCount} 位人物`);
+}
+
+// =====================================================================================
+// 文件夹模式：拖入 / 选择 Save 文件夹（或单个 SaveSlotN 文件夹）
+//   · 同时载入该槽位的 Hero（人物）与 Save（区域），顶栏切换
+//   · 保存时只写改动过的文件；写之前在同目录自动备份 <文件名>.<时间>.bak
+//   · 写之前检查磁盘文件自载入后是否被改动（防 Steam 云同步 / 游戏写入覆盖）
+// =====================================================================================
+state.slot = null;   // { dir, root, name, info, heroH, saveH, heroStamp, saveStamp }
+state.mode = state.mode || 'hero';
+let slotRoot = null; // 最近一次打开的 Save 根目录（用于「换存档」）
+
+const fsSupported = () => !!window.showDirectoryPicker;
+const stripTags = s => String(s || '').replace(/<[^>]*>/g, '');
+const stampOf = f => f.lastModified + ':' + f.size;
+
+async function ensurePerm(h, mode) {
+  if (!h.queryPermission) return true;
+  if ((await h.queryPermission({ mode })) === 'granted') return true;
+  return (await h.requestPermission({ mode })) === 'granted';
+}
+async function childDir(dir, name) { try { return await dir.getDirectoryHandle(name); } catch { return null; } }
+async function childFile(dir, name) { try { return await dir.getFileHandle(name); } catch { return null; } }
+
+// 找出用户给的目录是什么：槽位目录 / Save 根目录 / 游戏目录 / Data 目录
+async function classifyDir(dir) {
+  if (await childFile(dir, 'Hero') && await childFile(dir, 'Save')) return { slot: dir };
+  const tryRoot = async d => {
+    if (!d) return null;
+    for await (const [n, h] of d.entries()) if (h.kind === 'directory' && /^SaveSlot\d+$/.test(n)) return d;
+    return null;
+  };
+  let r = await tryRoot(dir);
+  if (!r) r = await tryRoot(await childDir(dir, 'Save'));
+  if (!r) { const data = await childDir(dir, 'LongYinLiZhiZhuan_Data'); if (data) r = await tryRoot(await childDir(data, 'Save')); }
+  return r ? { root: r } : null;
+}
+
+async function openDirectory(dir) {
+  if (!(await ensurePerm(dir, 'read'))) { showToast('没有读取权限', true); return; }
+  const c = await classifyDir(dir);
+  if (!c) { showToast('这个文件夹里没找到存档（应包含 SaveSlot0…10，或 Hero 与 Save 文件）', true); return; }
+  if (c.slot) { slotRoot = null; await openSlot(c.slot, null, dir.name); return; }
+  slotRoot = c.root;
+  await showSlotPicker(c.root);
+}
+
+async function readSlotInfo(dir) {
+  const out = { character: '', date: '', mode: '', force: '', diff: '', time: '', version: '' };
+  const ih = await childFile(dir, 'Info');
+  if (ih) {
+    try {
+      const j = JSON.parse((await readSaveText(await ih.getFile())).text);
+      const d = String(j.SaveDetail || '').split('\n');
+      out.character = d[0] || ''; out.date = d[1] || ''; out.mode = d[2] || '';
+      out.force = stripTags(d[3] || ''); out.diff = d[4] || '';
+      out.time = j.SaveTime || ''; out.version = j.SaveVersion || '';
+    } catch { }
+  }
+  return out;
+}
+
+async function showSlotPicker(root) {
+  setLoading(true, '读取存档列表...');
+  try {
+    const slots = [];
+    for await (const [n, h] of root.entries()) {
+      const m = /^SaveSlot(\d+)$/.exec(n);
+      if (!m || h.kind !== 'directory') continue;
+      const sh = await childFile(h, 'Save'), hh = await childFile(h, 'Hero');
+      if (!sh || !hh) continue;
+      const sf = await sh.getFile();
+      slots.push({ idx: +m[1], name: n, dir: h, info: await readSlotInfo(h), mtime: sf.lastModified });
+    }
+    slots.sort((a, b) => a.idx - b.idx);
+    const list = document.getElementById('slotList');
+    list.innerHTML = slots.length ? '' : '<div class="detail-empty">这个文件夹里没有完整的存档（需要同时有 Hero 和 Save）</div>';
+    for (const s of slots) {
+      const el = document.createElement('div');
+      el.className = 'sv-card';
+      const t = new Date(s.mtime);
+      el.innerHTML = `
+        <div class="sv-no">${s.idx}</div>
+        <div class="sv-main">
+          <div class="sv-name">${escapeHtml(s.info.character || s.name)}<span>${escapeHtml(s.info.date)}</span></div>
+          <div class="sv-sub">${escapeHtml(s.info.force || '无门派')}${s.info.mode ? ' · ' + escapeHtml(s.info.mode) : ''}${s.info.diff ? ' · ' + escapeHtml(s.info.diff) : ''}</div>
+        </div>
+        <div class="sv-time">${t.getMonth() + 1}-${t.getDate()} ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}</div>`;
+      el.addEventListener('click', () => openSlot(s.dir, root, s.name, s.info));
+      list.appendChild(el);
+    }
+    document.getElementById('slotRootName').textContent = root.name;
+    document.getElementById('dropzone').classList.add('hidden');
+    document.getElementById('workspace').classList.add('hidden');
+    document.getElementById('areaWorkspace').classList.add('hidden');
+    document.getElementById('modeSwitch').classList.add('hidden');
+    document.getElementById('slotPicker').classList.remove('hidden');
+    document.getElementById('fileInfo').textContent = `${root.name} · ${slots.length} 个存档`;
+    document.getElementById('btnSave').disabled = true;
+    document.getElementById('btnReload').disabled = true;
+    document.getElementById('btnSlots').classList.add('hidden');
+  } catch (e) { showToast('读取存档列表失败：' + e.message, true); }
+  finally { setLoading(false); }
+}
+
+function parseHeroArray(text) {
+  let data = JSON.parse(text);
+  if (!Array.isArray(data)) {
+    const k = data && typeof data === 'object' ? Object.keys(data).find(x => Array.isArray(data[x]) && data[x][0]?.heroName !== undefined) : null;
+    if (!k) throw new Error('Hero 文件格式与预期不同');
+    data = data[k];
+  }
+  const first = data.find(h => h !== null);
+  if (!first || (first.heroName === undefined && first.heroID === undefined)) throw new Error('Hero 文件里没有有效人物');
+  return data;
+}
+
+async function openSlot(dir, root, name, info) {
+  setLoading(true, `读取 ${name} ...`);
+  try {
+    if (!info) info = await readSlotInfo(dir);
+    const heroH = await dir.getFileHandle('Hero'), saveH = await dir.getFileHandle('Save');
+    const hf = await heroH.getFile(), sf = await saveH.getFile();
+    setLoading(true, '解析人物数据...');
+    await new Promise(r => setTimeout(r, 20));
+    const heroRd = await readSaveText(hf);
+    const heroData = parseHeroArray(heroRd.text);
+    setLoading(true, '解析区域数据...');
+    await new Promise(r => setTimeout(r, 20));
+    const saveRd = await readSaveText(sf);
+    const saveText = saveRd.text;
+    const saveData = JSON.parse(saveText);
+    if (!Array.isArray(saveData.Areas) || !Array.isArray(saveData.Forces)) throw new Error('Save 文件格式与预期不同');
+    initAreaData({ name: 'Save', size: sf.size }, saveText, saveData);
+    state.fileHandle = null;
+    state.slot = { dir, root, name, info, heroH, saveH, heroStamp: stampOf(hf), saveStamp: stampOf(sf), heroFmt: heroRd.fmt, saveFmt: saveRd.fmt };
+    applyHeroData({ name: 'Hero', size: hf.size }, heroData);
+    document.getElementById('slotPicker').classList.add('hidden');
+    document.getElementById('modeSwitch').classList.remove('hidden');
+    document.getElementById('btnSlots').classList.toggle('hidden', !root);
+    document.getElementById('btnReload').disabled = false;
+    showMode(state.lastMode || 'hero');
+    renderAreaList(); renderAreaDetail();
+    updateSlotInfo();
+    showToast(`已打开 ${name}：${info.character || ''} ${info.force || ''}`);
+  } catch (e) { showToast('打开存档失败：' + e.message, true); console.error(e); }
+  finally { setLoading(false); }
+}
+
+function updateSlotInfo() {
+  if (!state.slot) return;
+  const s = state.slot;
+  document.getElementById('fileInfo').textContent = `${s.name} · ${s.info.character || ''} · ${s.info.force || '无门派'} · 改哪个文件写哪个`;
+}
+
+function showMode(m) {
+  state.mode = m;
+  if (state.slot) state.lastMode = m;
+  document.getElementById('workspace').classList.toggle('hidden', m !== 'hero');
+  document.getElementById('areaWorkspace').classList.toggle('hidden', m !== 'area');
+  document.querySelectorAll('#modeSwitch button').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === m);
+    const dirty = b.dataset.mode === 'hero' ? state.dirtyIdx.size > 0 : areaDirty() > 0;
+    b.classList.toggle('dirty', dirty);
+  });
+  updateSaveButton();
+}
+
+function slotDirtyFiles() {
+  const l = [];
+  if (state.dirtyIdx.size > 0) l.push('Hero');
+  if (areaDirty() > 0) l.push('Save');
+  return l;
+}
+
+function timeStamp() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+
+async function writeFile(dir, name, data) {
+  const h = await dir.getFileHandle(name, { create: true });
+  const w = await h.createWritable();
+  await w.write(data);
+  await w.close();
+  return h;
+}
+
+async function saveSlot() {
+  const s = state.slot;
+  const files = slotDirtyFiles();
+  if (!files.length) return;
+  try {
+    if (!(await ensurePerm(s.dir, 'readwrite'))) throw new Error('没有写入权限');
+    // 1) 磁盘上的文件自载入后有没有被改过
+    const cur = {};
+    for (const f of files) {
+      const h = f === 'Hero' ? s.heroH : s.saveH;
+      cur[f] = await h.getFile();
+      const want = f === 'Hero' ? s.heroStamp : s.saveStamp;
+      if (stampOf(cur[f]) !== want) throw new Error(`${s.name}/${f} 在载入后被改动过（可能是游戏或 Steam 云同步写入）。为免覆盖，请点「重新载入」后再改。`);
+    }
+    const detail = files.map(f => f === 'Hero' ? `Hero（${state.dirtyIdx.size} 位人物）` : `Save（${areaDirty()} 个地块）`).join('、');
+    if (!confirm(`将写入 ${s.name} 的：${detail}\n\n写之前会在同一文件夹自动备份原文件（.bak）。\n请确认游戏已完全关闭（建议先关闭 Steam 云存档）。继续？`)) { showToast('已取消'); return; }
+    setLoading(true, '生成文件...');
+    await new Promise(r => setTimeout(r, 30));
+    // 2) 先把新内容全部生成好（任何一步失败都不写盘）
+    const out = {};
+    const outText = {};
+    if (files.includes('Save')) outText.Save = buildAreaText().text;
+    if (files.includes('Hero')) outText.Hero = JSON.stringify(state.rawData);
+    // 保持原文件格式（新版游戏为 gzip 压缩）
+    for (const f of files) out[f] = await encodeSaveText(outText[f], f === 'Hero' ? s.heroFmt : s.saveFmt);
+    // 3) 备份 + 写入
+    const st = timeStamp(), backups = [];
+    for (const f of files) {
+      setLoading(true, `备份 ${f} ...`);
+      const bak = `${f}.${st}.bak`;
+      await writeFile(s.dir, bak, await cur[f].arrayBuffer());
+      backups.push(bak);
+      setLoading(true, `写入 ${f} ...`);
+      await writeFile(s.dir, f, out[f]);
+    }
+    // 4) 刷新基准
+    if (out.Save) { s.saveStamp = stampOf(await s.saveH.getFile()); afterAreaSaved(outText.Save); }
+    if (out.Hero) {
+      s.heroStamp = stampOf(await s.heroH.getFile());
+      state.dirtyIdx.clear();
+      document.querySelectorAll('.roster-item.dirty').forEach(el => el.classList.remove('dirty'));
+    }
+    document.getElementById('btnSave').disabled = true;
+    showMode(state.mode);
+    showToast(`已写入 ${files.join('、')}，备份：${backups.join('、')}`);
+  } catch (e) { showToast('保存失败：' + e.message, true); console.error(e); }
+  finally { setLoading(false); }
+}
+
+async function reloadSlot() {
+  const s = state.slot;
+  if (slotDirtyFiles().length && !confirm('将丢弃所有未保存的修改，从磁盘重新读取这个存档？')) return;
+  state.dirtyIdx.clear(); area.edits = new Map(); area.bedits = new Map(); area.pick = -1;
+  await openSlot(s.dir, s.root, s.name);
+}
+
+async function backToSlots() {
+  if (!slotRoot) return;
+  if (slotDirtyFiles().length && !confirm('有未保存的修改，确定换存档？')) return;
+  state.slot = null; state.rawData = null; state.selectedIdx = -1; state.dirtyIdx.clear();
+  area.data = null; area.text = null; area.spans = null; area.edits = new Map(); area.bedits = new Map(); area.pick = -1; area.sel = -1;
+  await showSlotPicker(slotRoot);
+}
+
+async function pickFolder() {
+  if (!fsSupported()) { showToast('打开文件夹需要 Edge 或 Chrome 浏览器', true); return; }
+  try { await openDirectory(await window.showDirectoryPicker({ id: 'longyin-save', mode: 'readwrite' })); }
+  catch (e) { if (e.name !== 'AbortError') showToast('打开文件夹失败：' + e.message, true); }
+}
+
+document.getElementById('btnPickDir').addEventListener('click', pickFolder);
+document.getElementById('btnSlots').addEventListener('click', backToSlots);
+document.getElementById('btnSlotBack').addEventListener('click', () => {
+  slotRoot = null;
+  document.getElementById('slotPicker').classList.add('hidden');
+  document.getElementById('dropzone').classList.remove('hidden');
+  document.getElementById('fileInfo').textContent = '';
+});
+document.getElementById('modeSwitch').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  showMode(b.dataset.mode);
+});
+
+// =====================================================================================
+// exe 模式（龙胤立志传存档修改器.exe）：页面由 exe 内置的本地服务提供，
+//   · 游戏数据（武功、天赋、门派、建筑等）由 exe 从游戏文件里读取后填入
+//   · 存档通过本地服务读写（模拟文件夹句柄，沿用文件夹模式的全部逻辑：只写改动文件、自动备份、外部改动检测）
+//   · 打开时直接显示存档列表
+// 普通网页版（没有 window.__HOST__）时这段不起作用。
+// =====================================================================================
+(function () {
+  const H = window.__HOST__;
+  if (!H) return;
+  const api = (path, opt) => fetch(path, Object.assign({ headers: { 'X-Token': H.token } }, opt || {}));
+  const q = p => encodeURIComponent(p);
+
+  function fileHandle(path, name) {
+    return {
+      kind: 'file', name,
+      queryPermission: async () => 'granted', requestPermission: async () => 'granted',
+      async getFile() {
+        const r = await api('/api/file?path=' + q(path));
+        if (!r.ok) throw new Error('读取失败：' + path);
+        const buf = await r.arrayBuffer();
+        return new File([buf], name, { lastModified: +r.headers.get('X-Mtime') || Date.now() });
+      },
+      async createWritable() {
+        const parts = [];
+        return {
+          write: async d => { parts.push(d); },
+          close: async () => {
+            const body = await new Blob(parts).arrayBuffer();
+            const r = await api('/api/write?path=' + q(path), { method: 'POST', body });
+            if (!r.ok) throw new Error('写入失败：' + (await r.text()));
+          },
+        };
+      },
+    };
+  }
+  function dirHandle(path, name) {
+    const list = async () => {
+      const r = await api('/api/list?path=' + q(path));
+      if (!r.ok) throw new Error('读取目录失败');
+      return r.json();
+    };
+    const join = n => (path ? path + '/' : '') + n;
+    return {
+      kind: 'directory', name,
+      queryPermission: async () => 'granted', requestPermission: async () => 'granted',
+      async *entries() { for (const e of await list()) yield [e.name, e.kind === 'directory' ? dirHandle(join(e.name), e.name) : fileHandle(join(e.name), e.name)]; },
+      async getDirectoryHandle(n) {
+        const e = (await list()).find(x => x.name === n && x.kind === 'directory');
+        if (!e) { const err = new Error('不存在'); err.name = 'NotFoundError'; throw err; }
+        return dirHandle(join(n), n);
+      },
+      async getFileHandle(n, opt) {
+        const e = (await list()).find(x => x.name === n && x.kind === 'file');
+        if (!e && !(opt && opt.create)) { const err = new Error('不存在'); err.name = 'NotFoundError'; throw err; }
+        return fileHandle(join(n), n);
+      },
+    };
+  }
+
+  // 告诉 exe 页面还开着；窗口关掉后 exe 自动退出
+  setInterval(() => { api('/api/ping', { method: 'POST' }).catch(() => {}); }, 4000);
+  window.addEventListener('beforeunload', () => { try { navigator.sendBeacon('/api/bye?t=' + H.token); } catch (e) {} });
+
+  window.addEventListener('DOMContentLoaded', () => {
+    document.body.classList.add('host-mode');
+    document.title = '龙胤立志传 存档修改器';
+    const fi = document.getElementById('fileInfo');
+    if (fi && H.game) fi.title = H.game;
+    openDirectory(dirHandle('', 'Save'));
+  });
+})();
+
+</script>
+</body>
+</html>
