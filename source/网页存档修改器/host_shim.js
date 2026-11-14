@@ -8,7 +8,16 @@
 (function () {
   const H = window.__HOST__;
   if (!H) return;
-  const api = (path, opt) => fetch(path, Object.assign({ headers: { 'X-Token': H.token } }, opt || {}));
+  // 请求加超时：后台连不上时报错，不会一直卡在「读取…」
+  const api = async (path, opt, ms) => {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), ms || 60000);
+    try {
+      return await fetch(path, Object.assign({ headers: { 'X-Token': H.token }, signal: ctl.signal }, opt || {}));
+    } catch (e) {
+      throw new Error('连接不到修改器后台（可能已经退出）。请关掉这个窗口，重新打开「龙胤立志传存档修改器.exe」');
+    } finally { clearTimeout(timer); }
+  };
   const q = p => encodeURIComponent(p);
 
   function fileHandle(path, name) {
@@ -58,8 +67,12 @@
     };
   }
 
-  // 告诉 exe 页面还开着；窗口关掉后 exe 自动退出
-  setInterval(() => { api('/api/ping', { method: 'POST' }).catch(() => {}); }, 4000);
+  // 告诉 exe 页面还开着；窗口关掉后 exe 自动退出。
+  // 窗口在后台时浏览器会放慢定时器，所以切回前台时马上报一次。
+  const ping = () => { api('/api/ping', { method: 'POST' }, 10000).catch(() => {}); };
+  setInterval(ping, 4000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) ping(); });
+  window.addEventListener('focus', ping);
   window.addEventListener('beforeunload', () => { try { navigator.sendBeacon('/api/bye?t=' + H.token); } catch (e) {} });
 
   window.addEventListener('DOMContentLoaded', () => {
