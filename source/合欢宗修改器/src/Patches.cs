@@ -586,7 +586,7 @@ namespace LongYinMod
         }
 
         // ---------------- orchestration (independent, selectable features) ----------------
-        public const string FHff = "hff", FCustom = "custom", FBook = "book", FRead = "read", FHhd = "hhd", FTag = "tag";
+        public const string FHff = "hff", FCustom = "custom", FBook = "book", FRead = "read", FAuct = "auct", FHhd = "hhd", FTag = "tag";
 
         public class FileState
         {
@@ -649,7 +649,8 @@ namespace LongYinMod
             Func<byte[], bool> csOn = d => Safe(() => CustomSkillPatched(d, meta));
             Func<byte[], bool> bookOn = d => Safe(() => BookCountPatched(d));
             Func<byte[], bool> readOn = d => Safe(() => ReadSkipPatched(d));
-            var dll = LoadFile(G.Dll, d => hffOn(d) || csOn(d) || bookOn(d) || readOn(d));
+            Func<byte[], bool> auctOn = d => Safe(() => AutoBidPatched(d));
+            var dll = LoadFile(G.Dll, d => hffOn(d) || csOn(d) || bookOn(d) || readOn(d) || auctOn(d));
             var res = LoadFile(G.Resources, d => HasBuilding(d) || HasTag(d));
             var ggm = LoadFile(G.Ggm, GgmPatched);
             ResolveAtlas(ggm.Pristine);
@@ -672,6 +673,8 @@ namespace LongYinMod
                 Desc = "悬停秘籍时多一个框，显示背包 / 仓库 / 宗门仓库 / 藏经阁里的数量", Installed = bookOn(dll.Current) });
             plan.Features.Add(new Feature { Key = FRead, Title = "首次研读也可跳过", Files = new[] { nDll },
                 Desc = "没研读过的秘籍也能跳过，得到同武学等级最高研读经验的 80%", Installed = readOn(dll.Current) });
+            plan.Features.Add(new Feature { Key = FAuct, Title = "拍卖自动出价", Files = new[] { nDll },
+                Desc = "开拍 / 出价按钮旁加「自动出价」，别人出价就自动跟，上限是背包钱数", Installed = auctOn(dll.Current) });
             plan.Features.Add(new Feature { Key = FHhd, Title = "合欢殿", Files = new[] { nRes, nGgm, nAtl },
                 Desc = "新建筑（借用金顶外观），自立门户后可建造", Installed = HasBuilding(res.Current) || GgmPatched(ggm.Current) || AtlasPatched(atl.Current) });
             plan.Features.Add(new Feature { Key = FTag, Title = "合欢宗主天赋", Files = new[] { nRes },
@@ -685,6 +688,7 @@ namespace LongYinMod
                 if (sel.Contains(FCustom)) d = PatchCustomSkill(d, meta);
                 if (sel.Contains(FBook)) d = PatchBookCount(d, meta);
                 if (sel.Contains(FRead)) d = PatchReadSkip(d, meta);
+                if (sel.Contains(FAuct)) d = PatchAutoBid(d, meta);
                 o[dll.Path] = d;
                 var r = res.Pristine;
                 if (sel.Contains(FHhd)) r = PatchBuilding(r);
