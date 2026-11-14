@@ -1,7 +1,8 @@
-// 秘籍持有数量提示：鼠标放在秘籍上时，在特效说明框下面再加一个框，显示同一门武学秘籍的数量（按品质颜色）：
-//   背包（总显示）、仓库、宗门仓库、藏经阁（这三行没有就不显示；门派取主角所属门派）。
+// 秘籍持有数量提示：鼠标放在秘籍或武功上时，在说明框最后再加一个框，显示同一门武学秘籍的数量（按品质颜色）：
+//   背包、仓库、宗门仓库、藏经阁（门派取主角所属门派），数量为 0 的行不显示；全都没有时显示「背包：无」。
 // 做法：GameAssembly.dll 末尾新增一个代码节 .hhbook，放入 BookCountCave 的机器码；
-//       把 QuickDetail.ShowBookQuickDetail 尾声的第一条指令（movaps xmm6,[rsp+40h]）换成 jmp 到新代码，执行完再跳回。
+//       把 QuickDetail.ShowBookQuickDetail / ShowSkillQuickDetail 尾声的第一条指令（movaps xmm6,[rsp+N]）
+//       换成 jmp 到新代码（入口 +0 / +5），执行完再跳回。
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -14,8 +15,8 @@ namespace LongYinMod
 
         class BookTargets
         {
-            public long HookOff;           // 文件偏移：movaps xmm6,[rsp+40h]
-            public ulong HookVa;
+            public long HookOff, SkillOff;    // 文件偏移：movaps xmm6,[rsp+40h] / [rsp+30h]
+            public ulong HookVa, SkillVa;
             public Dictionary<string, ulong> Ext = new Dictionary<string, ulong>();
         }
 
@@ -65,21 +66,45 @@ namespace LongYinMod
             t.HookVa = pe.OffToVa(t.HookOff);
             t.Ext["Back"] = t.HookVa + 5;
 
-            // WorldData 所在的类指针槽：Player() 调用前的 mov rax,[rip+X] ; ... mov rax,[rax+0B8h] ; mov rcx,[rax] ; ... mov rcx,[rcx+20h]
+            // 武功说明：ShowSkillQuickDetail(target, skillLvData, showUseTime) 尾声；rdi = skillLvData（开头 mov rdi,r8）
+            ulong showSkill = va("QuickDetail", "ShowSkillQuickDetail", new[] { "target", "skillLvData", "showUseTime" });
+            long sf = pe.VaToOff(showSkill);
+            int send = (int)Math.Min(dll.Length, sf + 0x1000);
+            hits.Clear();
+            FindAll(dll, new byte[] { 0x0F, 0x28, 0x74, 0x24, 0x30, 0x4C, 0x8B, 0x74, 0x24 }, (int)sf, send, hits);
+            if (hits.Count != 1) throw new ModException("秘籍数量提示：找不到 ShowSkillQuickDetail 的尾声（" + hits.Count + "）");
+            t.SkillOff = hits[0];
+            t.SkillVa = pe.OffToVa(t.SkillOff);
+            t.Ext["Back2"] = t.SkillVa + 5;
+            Require(dll, sf, 0x20, new byte[] { 0x49, 0x8B, 0xF8 }, "ShowSkillQuickDetail 里 rdi = skillLvData");
+            ulong refresh = va("QuickDetail", "RefreshSkillRangeUI", new[] { "skillLvData" });
+            bool rdiOk = false;
+            for (int p = (int)sf; p < t.SkillOff - 8 && !rdiOk; p++)
+                if (dll[p] == 0x48 && dll[p + 1] == 0x8B && dll[p + 2] == 0xD7)          // mov rdx,rdi
+                    for (int q = p + 3; q < p + 12; q++)
+                        if (dll[q] == 0xE8 && CallTarget(pe, dll, q) == refresh) { rdiOk = true; break; }
+            if (!rdiOk) throw new ModException("秘籍数量提示：ShowSkillQuickDetail 里 skillLvData 的寄存器与预期不同");
+            Require(dll, pe.VaToOff(va("KungfuSkillLvData", "DataBase", new string[0])), 0xC0, new byte[] { 0x8B, 0x53, 0x10 }, "KungfuSkillLvData.skillID(+10h)");
+
+            // 取 WorldData：用 AuctionController.Update 里那个自带初始化的静态 getter，
+            // 并核对它取的类与 ShowBookQuickDetail 里取 WorldData 用的类相同
+            ulong world = FindWorldGetter(dll, pe, code, m, t.Ext["Player"]);
+            t.Ext["World"] = world;
+            long wg = pe.VaToOff(world);
+            int wl = Bin.IndexOf(dll, new byte[] { 0x48, 0x8B, 0x80, 0xB8, 0x00, 0x00, 0x00 }, (int)wg, (int)wg + 0x60);
+            if (wl < 7 || dll[wl - 7] != 0x48 || dll[wl - 6] != 0x8B || dll[wl - 5] != 0x05) throw new ModException("秘籍数量提示：取 WorldData 的 getter 与预期不同");
+            ulong encGetter = (ulong)Bin.I64(dll, (int)pe.VaToOff(RipTarget(pe, dll, wl - 7, 7)));
             int callPlayer = -1;
             for (int p = (int)f; p < end - 5; p++)
-                if (dll[p] == 0xE8 && pe.OffToVa(p) + 5 + (ulong)(long)Bin.I32(dll, p + 1) == t.Ext["Player"]) { callPlayer = p; break; }
-            if (callPlayer < 0) throw new ModException("秘籍数量提示：找不到 WorldData.Player() 调用");
+                if (dll[p] == 0xE8 && CallTarget(pe, dll, p) == t.Ext["Player"]) { callPlayer = p; break; }
             int b8 = -1;
-            for (int p = callPlayer - 7; p > callPlayer - 0x60; p--)
+            for (int p = callPlayer - 7; callPlayer > 0 && p > callPlayer - 0x60; p--)
                 if (dll[p] == 0x48 && dll[p + 1] == 0x8B && dll[p + 2] == 0x80 && Bin.U32(dll, p + 3) == 0xB8) { b8 = p; break; }
-            if (b8 < 0 || Bin.IndexOf(dll, new byte[] { 0x48, 0x8B, 0x49, 0x20 }, b8, callPlayer) < 0)
-                throw new ModException("秘籍数量提示：取 WorldData 的指令与预期不同");
             int ld = -1;
-            for (int p = b8 - 7; p > b8 - 0x40; p--)
+            for (int p = b8 - 7; b8 > 0 && p > b8 - 0x40; p--)
                 if (dll[p] == 0x48 && dll[p + 1] == 0x8B && dll[p + 2] == 0x05) { ld = p; break; }
-            if (ld < 0) throw new ModException("秘籍数量提示：找不到类指针");
-            t.Ext["ClassSlot"] = pe.OffToVa(ld) + 7 + (ulong)(long)Bin.I32(dll, ld + 3);
+            if (ld < 0 || (ulong)Bin.I64(dll, (int)pe.VaToOff(RipTarget(pe, dll, ld, 7))) != encGetter)
+                throw new ModException("秘籍数量提示：取 WorldData 的类与预期不同");
 
             // 汇编里写死的字段偏移，逐一用游戏代码核对
             Require(dll, f, 0x800, new byte[] { 0x49, 0x8B, 0x4F, 0x70 }, "ItemData.bookData(+70h)");
@@ -115,10 +140,13 @@ namespace LongYinMod
             var pe2 = new PeImage(outb);
             long caveOff = pe2.VaToOff(caveVa);
             Array.Copy(cave, 0, outb, caveOff, cave.Length);
-            // 钩子：movaps xmm6,[rsp+40h]（5 字节）→ jmp cave
+            // 钩子：movaps xmm6,[rsp+N]（5 字节）→ jmp 入口（秘籍 +0，武功 +5）
             long j = (long)caveVa - (long)(t.HookVa + 5);
             outb[t.HookOff] = 0xE9;
             Array.Copy(BitConverter.GetBytes((int)j), 0, outb, t.HookOff + 1, 4);
+            long j2 = (long)(caveVa + 5) - (long)(t.SkillVa + 5);
+            outb[t.SkillOff] = 0xE9;
+            Array.Copy(BitConverter.GetBytes((int)j2), 0, outb, t.SkillOff + 1, 4);
             return outb;
         }
     }

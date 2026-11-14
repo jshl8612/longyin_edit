@@ -94,15 +94,7 @@ namespace LongYinMod
             if (getComp == 0 || slotText == 0 || slotBtn == 0) throw bad("Update 里取 Text / Button 组件的代码");
             t.Ext["GetComp"] = getComp; t.Ext["SlotText"] = slotText; t.Ext["SlotBtn"] = slotBtn;
 
-            // 取 WorldData：xor ecx,ecx ; call X ; test rax,rax ; ... mov rcx,[rax+20h] ; ... call WorldData.Player
-            ulong world = 0;
-            for (int q = (int)u; q < uend - 0x30 && world == 0; q++)
-                if (dll[q] == 0x33 && dll[q + 1] == 0xC9 && dll[q + 2] == 0xE8
-                    && Bin.IndexOf(dll, new byte[] { 0x48, 0x8B, 0x48, 0x20 }, q + 7, q + 0x18) >= 0)
-                    for (int r = q + 7; r < q + 0x30; r++)
-                        if (dll[r] == 0xE8 && CallTarget(pe, dll, r) == t.Ext["Player"]) { world = CallTarget(pe, dll, q + 2); break; }
-            if (world == 0) throw bad("Update 里取主角的代码");
-            t.Ext["World"] = world;
+            t.Ext["World"] = FindWorldGetter(dll, pe, cs, m, t.Ext["Player"]);
 
             // 子物体名 "OfferButton" 仍是出价按钮（Update 里以字符串常量出现）
             bool offerName = false;
@@ -130,6 +122,20 @@ namespace LongYinMod
             Require(dll, sure, 0x140, new byte[] { 0x48, 0x8B, 0x80, 0x20, 0x02, 0x00, 0x00 }, "HeroData.itemListData(+220h)");
             Require(dll, sure, 0x140, new byte[] { 0x66, 0x0F, 0x6E, 0x40, 0x18 }, "ItemListData.money(+18h)");
             return t;
+        }
+
+        // 取 WorldData 所在对象的静态 getter（自带初始化）：AuctionController.Update 里
+        //   xor ecx,ecx ; call X ; test rax,rax ; ... mov rcx,[rax+20h] ; ... call WorldData.Player
+        internal static ulong FindWorldGetter(byte[] dll, PeImage pe, Il2CppCode cs, Il2CppMeta m, ulong player)
+        {
+            long u = pe.VaToOff(cs.MethodVa(m.FindMethod("AuctionController", "Update", new string[0]).Token));
+            int uend = (int)Math.Min(dll.Length, u + 0x700);
+            for (int q = (int)u; q < uend - 0x30; q++)
+                if (dll[q] == 0x33 && dll[q + 1] == 0xC9 && dll[q + 2] == 0xE8
+                    && Bin.IndexOf(dll, new byte[] { 0x48, 0x8B, 0x48, 0x20 }, q + 7, q + 0x18) >= 0)
+                    for (int r = q + 7; r < q + 0x30; r++)
+                        if (dll[r] == 0xE8 && CallTarget(pe, dll, r) == player) return CallTarget(pe, dll, q + 2);
+            throw new ModException("找不到取主角的静态 getter（游戏代码可能已改）");
         }
 
         bool AutoBidPatched(byte[] dll) { return new PeImage(dll).Sections.Exists(s => s.Name == AuctionSectionName); }
