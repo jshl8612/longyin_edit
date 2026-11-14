@@ -1,5 +1,8 @@
 
 // =====================================================================================
+// 游戏的特殊槽位：0 = 自动存档，10 = 快速存档（游戏会自动覆盖）
+const SLOT_KIND = { 0: '自动存档', 10: '快速存档' };
+
 // 文件夹模式：拖入 / 选择 Save 文件夹（或单个 SaveSlotN 文件夹）
 //   · 同时载入该槽位的 Hero（人物）与 Save（区域），顶栏切换
 //   · 保存时只写改动过的文件；写之前在同目录自动备份 <文件名>.<时间>.bak
@@ -81,7 +84,7 @@ async function showSlotPicker(root) {
       el.innerHTML = `
         <div class="sv-no">${s.idx}</div>
         <div class="sv-main">
-          <div class="sv-name">${escapeHtml(s.info.character || s.name)}<span>${escapeHtml(s.info.date)}</span></div>
+          <div class="sv-name">${escapeHtml(s.info.character || s.name)}<span>${escapeHtml(s.info.date)}</span>${SLOT_KIND[s.idx] ? `<em class="sv-kind" title="游戏会自动覆盖这个槽位">${SLOT_KIND[s.idx]}</em>` : ''}</div>
           <div class="sv-sub">${escapeHtml(s.info.force || '无门派')}${s.info.mode ? ' · ' + escapeHtml(s.info.mode) : ''}${s.info.diff ? ' · ' + escapeHtml(s.info.diff) : ''}</div>
         </div>
         <div class="sv-time">${t.getMonth() + 1}-${t.getDate()} ${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}</div>`;
