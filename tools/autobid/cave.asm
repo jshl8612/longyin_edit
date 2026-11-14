@@ -9,7 +9,7 @@
 ;      每帧让它跟开拍按钮同时显示 / 隐藏；
 ;    · 出价按钮（playerAuctionUI/OfferButton）下面没有 hhAutoBid 就复制一个，放在右边；文字随开关显示「自动出价 / 停止自动」；
 ;    · 复制的按钮宽度 ×1.6，文字设为不换行；
-;    · 开关打开、正在竞价、主角参拍、没有点跳过、还有时间、还是开拍时那一件、当前出价人不是主角：
+;    · 开关打开、正在竞价、主角参拍、还有时间、还是开拍时那一件、当前出价人不是主角（快进时也照样出价）：
 ;      下一口价 ≤ 背包钱数 → 以主角名义出价（与手动出价同一套 RefreshOfferMoney + StartCoroutine）；
 ;      否则关闭开关。
 bits 64
@@ -59,7 +59,6 @@ EXT X_OVERFLOW,  30    ; Text.set_horizontalOverflow(value)
 %define A_HAVEPL    0x4c   ; havePlayer
 %define A_LEFT      0x94   ; offerRoundLeftTime
 %define A_NOWHERO   0x98   ; nowOfferHero
-%define A_SKIP      0xb4   ; skipping
 %define H_ITEMS     0x220  ; HeroData.itemListData
 %define L_MONEY     0x18   ; ItemListData.money
 
@@ -413,8 +412,6 @@ autobid:
     jne .r
     cmp byte [r12 + A_HAVEPL], 0
     je .r
-    cmp byte [r12 + A_SKIP], 0
-    jne .r
     xorps xmm0, xmm0
     comiss xmm0, [r12 + A_LEFT]
     jae .r

@@ -121,7 +121,6 @@ namespace LongYinMod
             Require(dll, u, 0x700, new byte[] { 0x83, 0x7B, 0x48, 0x02 }, "AuctionController.auctionStep(+48h)");
             Require(dll, u, 0x700, new byte[] { 0x80, 0x7B, 0x4C, 0x00 }, "AuctionController.havePlayer(+4Ch)");
             Require(dll, u, 0x700, new byte[] { 0x48, 0x8B, 0x4B, 0x20 }, "AuctionController.playerAuctionUI(+20h)");
-            Require(dll, u, 0x700, new byte[] { 0x80, 0xBB, 0xB4, 0x00, 0x00, 0x00, 0x00 }, "AuctionController.skipping(+B4h)");
             Require(dll, u, 0x700, new byte[] { 0xF3, 0x0F, 0x10, 0xB3, 0x94, 0x00, 0x00, 0x00 }, "AuctionController.offerRoundLeftTime(+94h)");
             Require(dll, t.StartOff, 0x80, new byte[] { 0x48, 0x8B, 0x4B, 0x28 }, "AuctionController.startAuctionButton(+28h)");
             Require(dll, t.StartOff, 0x80, new byte[] { 0x48, 0x8B, 0x4B, 0x30 }, "AuctionController.leaveAuctionButton(+30h)");

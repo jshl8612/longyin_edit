@@ -175,7 +175,7 @@ r=update(step=1); check('开拍后两个开拍类按钮都隐藏', not OBJ[start
 r=update(); check('别人领先 → 自动出价', r['log'][:2]==['出价 1000','协程'] and r['rsp_ok'] and 'clobber' not in r, r)
 check('出价按钮文字变「停止自动」', label(bc)=='停止自动')
 r=update(hero=player); check('自己领先 → 不出价', '协程' not in r['log'], r['log'])
-r=update(skip=1); check('点了跳过 → 不出价', '协程' not in r['log'])
+r=update(skip=1); check('快进（skipping）时照样出价', '协程' in r['log'], r['log'])
 r=update(left=0.0); check('时间到 → 不出价', '协程' not in r['log'])
 r=update(haveP=0); check('主角不参拍 → 不出价', '协程' not in r['log'])
 r=update(step=1); check('还没开始竞价 → 不出价', '协程' not in r['log'])
