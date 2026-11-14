@@ -671,7 +671,7 @@ namespace LongYinMod
             plan.Features.Add(new Feature { Key = FBook, Title = "秘籍持有数量提示", Files = new[] { nDll },
                 Desc = "悬停秘籍时多一个框，显示背包 / 仓库 / 宗门仓库 / 藏经阁里的数量", Installed = bookOn(dll.Current) });
             plan.Features.Add(new Feature { Key = FRead, Title = "首次研读也可跳过", Files = new[] { nDll },
-                Desc = "没研读过的秘籍也能跳过，得到同品级最高研读经验的 80%", Installed = readOn(dll.Current) });
+                Desc = "没研读过的秘籍也能跳过，得到同武学等级最高研读经验的 80%", Installed = readOn(dll.Current) });
             plan.Features.Add(new Feature { Key = FHhd, Title = "合欢殿", Files = new[] { nRes, nGgm, nAtl },
                 Desc = "新建筑（借用金顶外观），自立门户后可建造", Installed = HasBuilding(res.Current) || GgmPatched(ggm.Current) || AtlasPatched(atl.Current) });
             plan.Features.Add(new Feature { Key = FTag, Title = "合欢宗主天赋", Files = new[] { nRes },

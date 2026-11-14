@@ -3,13 +3,14 @@ import struct,sys,capstone
 from unicorn import *
 from unicorn.x86_const import *
 b=bytearray(open(sys.argv[1],'rb').read())
-ext={0x10000000:'ObjNew',0x11000000:'Wb',0x12000000:'Ctor',0x13000000:'AddRec',0x14000000:'Menu',0x15000000:'Panel'}
+ext={0x10000000:'ObjNew',0x11000000:'Wb',0x12000000:'Ctor',0x13000000:'AddRec',0x14000000:'Menu',0x15000000:'Panel',0x16000000:'Db'}
 md=capstone.Cs(capstone.CS_ARCH_X86,capstone.CS_MODE_64)
-fix=[(i.address+i.size-4,ext[int(i.op_str,16)]) for i in md.disasm(bytes(b[:-4]),0) if i.mnemonic in('call','jmp') and i.op_str.startswith('0x') and int(i.op_str,16) in ext]
+fix=[(i.address+i.size-4,ext[int(i.op_str,16)]) for i in md.disasm(bytes(b[:-32]),0) if i.mnemonic in('call','jmp') and i.op_str.startswith('0x') and int(i.op_str,16) in ext]
 CAVE=0x400000; STUB=0x500000; HEAP=0x600000; STACK=0x800000
 stubs={n:STUB+k*16 for k,n in enumerate(ext.values())}
 for o,n in fix: struct.pack_into('<i',b,o,stubs[n]-(CAVE+o+4))
 f32=lambda v: struct.unpack('<f',struct.pack('<f',v))[0]
+KFLV={}
 def run(hero_recs, cur, rare, skill=77):
     mu=Uc(UC_ARCH_X86,UC_MODE_64)
     for a in (CAVE,STUB,HEAP,STACK): mu.mem_map(a,0x100000)
@@ -43,6 +44,9 @@ def run(hero_recs, cur, rare, skill=77):
         elif n=='Ctor':  # 构造：skillID + 6 个 0
             w32(rcx+0x10,rdx&0xffffffff); L=alloc(0x20); a=alloc(0x38); w(rcx+0x18,L); w(L+0x10,a); w32(L+0x18,6); w32(a+0x18,6); log.append(f'ctor({rdx&0xffffffff})')
         elif n=='AddRec': assert rcx==hero; log.append('addrec')
+        elif n=='Db':
+            sid=struct.unpack('<i',mu.mem_read(rcx+0x10,4))[0]
+            if sid in KFLV: r=alloc(0x40); w32(r+0x34,KFLV[sid]); log.append(f'db{sid}')
         elif n=='Wb': assert rcx==this and rdx==this+0xb0; w(rdx,r8); log.append('wb')
         for reg in (UC_X86_REG_RCX,UC_X86_REG_RDX,UC_X86_REG_R8,UC_X86_REG_R9,UC_X86_REG_R10,UC_X86_REG_R11): mu.reg_write(reg,0xdeadbeefdead)
         mu.reg_write(UC_X86_REG_RAX,r)
@@ -57,17 +61,20 @@ def run(hero_recs, cur, rare, skill=77):
     if rec:
         L=rd(rec+0x18); a=rd(L+0x10); val=struct.unpack('<f',mu.mem_read(a+0x20+4*rare,4))[0]
     return log, (None if val is None else round(val*0.9,1))
+# 武学等级：77 是当前武学
+KFLV.update({77:3, 1:3, 2:3, 3:5, 4:1, 99:3})
 cases=[
- ('首次学（无记录），同品级有记录', [(1,[0,0,0,0,0,1000]),(2,[0,0,0,0,0,3880])], None, 5, ('Menu',3104.0)),
- ('已学但本品级为 0',            [(1,[0,0,0,500,0,1000]),(2,[0,0,0,300,0,0])], [0]*6, 3, ('Menu',400.0)),
- ('同品级无记录，用所有品级最高',  [(1,[0,0,0,0,0,1500])], None, 1, ('Menu',1200.0)),
- ('人物没有任何记录',             [], None, 5, ('Panel',None)),
- ('记录都是 0',                  [(1,[0]*6)], [0]*6, 2, ('Panel',0.0)),
+ ('首次学，同等级有记录（取同等级同品级最高）', [(1,[0,0,0,0,0,1000]),(2,[0,0,0,0,0,3000]),(3,[0,0,0,0,0,3880])], None, 5, ('Menu',2400.0)),
+ ('同等级只有别的品级记录',                   [(1,[0,0,800,0,0,0]),(3,[0,0,0,0,0,3880])], None, 5, ('Menu',640.0)),
+ ('同等级没有记录 → 默认值（等级3=2440）',      [(3,[0,0,0,0,0,3880]),(4,[0,0,0,0,0,900])], None, 5, ('Menu',2440.0)),
+ ('已学但本品级为 0，同等级有记录',             [(1,[0,0,0,500,0,1000]),(77,[0,0,0,0,0,0])], [0]*6, 3, ('Menu',400.0)),
+ ('记录对应的武学查不到等级 → 跳过它',          [(55,[0,0,0,0,0,9999]),(2,[0,0,0,0,0,2000])], None, 5, ('Menu',1600.0)),
+ ('人物没有任何记录 → 进面板',                 [], None, 5, ('Panel',None)),
 ]
 ok=True
 for name,recs,cur,rare,(want,wv) in cases:
     log,v=run(recs,cur,rare)
     good = log[-1]==want and (wv is None or v==wv)
     ok&=good
-    print('OK ' if good else 'BAD', name, log, '跳过实得≈', v)
+    print('OK ' if good else 'BAD', name, '跳过实得≈', v)
 sys.exit(0 if ok else 1)
