@@ -1,14 +1,17 @@
 ; 拍卖自动出价
-; 1) Button.Press 开头：按钮名为 hhAutoStart → 记下「本件自动出价」，照常执行（它的点击事件是开拍）；
-;                        按钮名为 hhAutoBid  → 切换自动出价开关，不执行原来的点击（原来是手动出价）。
-; 2) AuctionController.StartAuctionRoundButtonClicked 开头：自动出价开关 = 记下的值（普通开拍就是关）。
-; 3) AuctionController.Update 开头（取完 this 之后）：
-;    · 开拍按钮下面没有 hhAutoStart 就复制开拍按钮做一个，放在右边，文字「自动出价」；
+; 1) Button.Press 开头：从被点按钮往上找（自己和最多 3 层父物体）名字：
+;      hhAutoStart → 记下「本件自动出价」，直接调用 AuctionController.StartAuctionRoundButtonClicked 开拍，不执行原点击；
+;      hhAutoBid   → 切换自动出价开关，不执行原点击（原来是手动出价）；
+;    （开拍按钮的点击事件是游戏运行时加的，复制按钮不会带过去，所以要自己调用开拍。）
+; 2) AuctionController.StartAuctionRoundButtonClicked 开头：自动出价开关 = 记下的值（普通开拍就是关），记下当前拍品。
+; 3) AuctionController.Update 开头（取完 this 之后）：记下 this；
+;    · 离开按钮下面没有 hhAutoStart 就复制开拍按钮做一个，放在离开按钮右边，文字「自动出价」；
+;      每帧让它跟开拍按钮同时显示 / 隐藏；
 ;    · 出价按钮（playerAuctionUI/OfferButton）下面没有 hhAutoBid 就复制一个，放在右边；文字随开关显示「自动出价 / 停止自动」；
-;    · 开关打开、正在竞价、主角参拍、没有点跳过、当前出价人不是主角：
+;    · 复制的按钮宽度 ×1.6，文字设为不换行；
+;    · 开关打开、正在竞价、主角参拍、没有点跳过、还有时间、还是开拍时那一件、当前出价人不是主角：
 ;      下一口价 ≤ 背包钱数 → 以主角名义出价（与手动出价同一套 RefreshOfferMoney + StartCoroutine）；
 ;      否则关闭开关。
-; 复制出来的按钮是原按钮的子物体，原按钮隐藏时一起隐藏。
 bits 64
 default rel
 org 0
@@ -39,9 +42,18 @@ EXT X_REFRESH,   19    ; AuctionController.RefreshOfferMoney(newOfferMoney,newOf
 EXT X_STARTCO,   20    ; MonoBehaviour.StartCoroutine(routine)
 EXT X_PLAYER,    21    ; WorldData.Player()
 EXT X_WORLD,     22    ; 取 WorldData 所在对象的静态 getter（Update 里同样调用）
+EXT X_CTRANS,    23    ; Component.get_transform()
+EXT X_PARENT,    24    ; Transform.get_parent()
+EXT X_STARTRND,  25    ; AuctionController.StartAuctionRoundButtonClicked()（已挂钩的入口）
+EXT X_SETSIZE,   26    ; RectTransform.set_sizeDelta(value)（Vector2 按值放 rdx）
+EXT X_GETGO,     27    ; Component.get_gameObject()
+EXT X_ACTIVE,    28    ; GameObject.get_activeSelf()
+EXT X_SETACTIVE, 29    ; GameObject.SetActive(value)
+EXT X_OVERFLOW,  30    ; Text.set_horizontalOverflow(value)
 
 %define A_UI        0x20   ; playerAuctionUI (GameObject)
 %define A_STARTBTN  0x28   ; startAuctionButton (GameObject)
+%define A_LEAVEBTN  0x30   ; leaveAuctionButton (GameObject)
 %define A_STEP      0x48
 %define A_ITEMS     0x58   ; auctionItemList（[0] 是当前拍品）   ; auctionStep（2 = 竞价中）
 %define A_HAVEPL    0x4c   ; havePlayer
@@ -59,29 +71,51 @@ entry_update: jmp strict near update_hook     ; +10
 ; ---------- Button.Press ----------
 press_hook:                     ; rcx = Button
     push rcx
-    sub rsp, 0x30
+    sub rsp, 0x40               ; [20h] 当前 Transform  [28h] 名字  [30h] 剩余层数
+    xor edx, edx
+    call $$ + X_CTRANS
+    mov [rsp + 0x20], rax
+    mov dword [rsp + 0x30], 4   ; 自己 + 3 层父物体
+.up:
+    mov rcx, [rsp + 0x20]
+    test rcx, rcx
+    jz .orig
     xor edx, edx
     call $$ + X_GETNAME
-    mov [rsp + 0x20], rax
+    mov [rsp + 0x28], rax
     mov rcx, rax
     lea rdx, [w_start]
     call wstreq
     test eax, eax
-    jz .notstart
-    mov byte [g_pending], 1
-    jmp .orig
-.notstart:
-    mov rcx, [rsp + 0x20]
+    jnz .start
+    mov rcx, [rsp + 0x28]
     lea rdx, [w_bid]
     call wstreq
     test eax, eax
+    jnz .bid
+    dec dword [rsp + 0x30]
     jz .orig
+    mov rcx, [rsp + 0x20]
+    xor edx, edx
+    call $$ + X_PARENT
+    mov [rsp + 0x20], rax
+    jmp .up
+.start:
+    mov byte [g_pending], 1
+    mov rcx, [g_ctrl]
+    test rcx, rcx
+    jz .ret
+    xor edx, edx
+    call $$ + X_STARTRND        ; 进入挂钩：开关 = 开
+    jmp .ret
+.bid:
     xor byte [g_auto], 1
-    add rsp, 0x30
+.ret:
+    add rsp, 0x40
     pop rcx
     ret
 .orig:
-    add rsp, 0x30
+    add rsp, 0x40
     pop rcx
     push rbx
     sub rsp, 0x20
@@ -106,6 +140,7 @@ update_hook:                    ; rbx = this，rsp 16 对齐
     push r13
     sub rsp, 0x40
     mov r12, rbx
+    mov [g_ctrl], rbx
     call ensure
     call autobid
     add rsp, 0x40
@@ -120,6 +155,20 @@ update_hook:                    ; rbx = this，rsp 16 对齐
 ; 确保两个按钮存在，并刷新出价旁按钮的文字 / 可点状态（r12 = this）
 ensure:
     sub rsp, 0x28
+    ; --- 开拍旁：hhAutoStart 放在离开按钮下面（离开按钮右边） ---
+    mov rcx, [r12 + A_LEAVEBTN]
+    test rcx, rcx
+    jz .bid
+    xor edx, edx
+    call $$ + X_GETTRANS
+    test rax, rax
+    jz .bid
+    mov rsi, rax                ; 离开按钮
+    lea rcx, [s_start]
+    call find_child
+    mov rdi, rax
+    test rdi, rdi
+    jnz .sync
     mov rcx, [r12 + A_STARTBTN]
     test rcx, rcx
     jz .bid
@@ -127,15 +176,30 @@ ensure:
     call $$ + X_GETTRANS
     test rax, rax
     jz .bid
-    mov rsi, rax
-    lea rcx, [s_start]
-    call find_child
-    test rax, rax
-    jnz .bid
-    mov rcx, rsi
-    lea rdx, [s_start]
-    lea r8, [s_auto]
+    mov rcx, rax                ; 复制开拍按钮
+    mov rdx, rsi                ; 放到离开按钮下
+    lea r8, [s_start]
+    lea r9, [s_auto]
     call makeclone
+    mov rdi, rax
+    test rdi, rdi
+    jz .bid
+.sync:                          ; 跟开拍按钮同时显示 / 隐藏
+    mov rcx, [r12 + A_STARTBTN]
+    test rcx, rcx
+    jz .bid
+    xor edx, edx
+    call $$ + X_ACTIVE
+    mov [rsp + 0x20], eax
+    mov rcx, rdi
+    xor edx, edx
+    call $$ + X_GETGO
+    test rax, rax
+    jz .bid
+    mov rcx, rax
+    movzx edx, byte [rsp + 0x20]
+    xor r8d, r8d
+    call $$ + X_SETACTIVE
 .bid:
     mov rcx, [r12 + A_UI]
     test rcx, rcx
@@ -156,8 +220,9 @@ ensure:
     test rdi, rdi
     jnz .have
     mov rcx, rsi
-    lea rdx, [s_bid]
-    lea r8, [s_auto]
+    mov rdx, rsi
+    lea r8, [s_bid]
+    lea r9, [s_auto]
     call makeclone
     mov rdi, rax
     test rdi, rdi
@@ -194,17 +259,20 @@ find_child:
     add rsp, 0x28
     ret
 
-; rcx = 原按钮 Transform，rdx = 新名字，r8 = 文字 → rax = 新按钮 Transform（失败 0）
+; rcx = 原按钮 Transform，rdx = 父 Transform，r8 = 新名字，r9 = 文字 → rax = 新按钮 Transform（失败 0）
+; 新按钮宽 = 原宽 × 1.6，放在父物体右边：x = 父宽/2 + 间隔 + 新宽/2（按中心轴心计算）
 makeclone:
     push rsi
     push rdi
     push rbx
-    sub rsp, 0x40
+    push r12
+    sub rsp, 0x48               ; [20h] 新按钮  [28h..34h) 位置  [38h] 原尺寸  [40h] 父宽
     mov rsi, rcx
-    mov rdi, rdx
-    mov rbx, r8
+    mov rdi, r8
+    mov rbx, r9
+    mov r12, rdx
     mov rcx, rsi
-    mov rdx, rsi
+    mov rdx, r12
     xor r8d, r8d
     xor r9d, r9d
     call $$ + X_INST
@@ -219,8 +287,24 @@ makeclone:
     call $$ + X_SETNAME
     mov rcx, rsi
     xor edx, edx
-    call $$ + X_SIZE            ; rax = (宽, 高)
-    movd xmm0, eax
+    call $$ + X_SIZE            ; rax = (原宽, 原高)
+    mov [rsp + 0x38], rax
+    mov rcx, r12
+    xor edx, edx
+    call $$ + X_SIZE
+    mov [rsp + 0x40], eax       ; 父宽
+    ; 新尺寸 (原宽×1.6, 原高)
+    movss xmm0, [rsp + 0x38]
+    mulss xmm0, [k_wide]
+    movss [rsp + 0x38], xmm0
+    mov rcx, [rsp + 0x20]
+    mov rdx, [rsp + 0x38]
+    xor r8d, r8d
+    call $$ + X_SETSIZE
+    ; x = 父宽/2 + 间隔 + 新宽/2
+    movss xmm0, [rsp + 0x40]
+    addss xmm0, [rsp + 0x38]
+    mulss xmm0, [k_half]
     addss xmm0, [k_gap]
     movss [rsp + 0x28], xmm0
     mov dword [rsp + 0x2c], 0
@@ -234,7 +318,8 @@ makeclone:
     call setlabel
     mov rax, [rsp + 0x20]
 .ret:
-    add rsp, 0x40
+    add rsp, 0x48
+    pop r12
     pop rbx
     pop rdi
     pop rsi
@@ -243,19 +328,45 @@ makeclone:
     xor eax, eax
     jmp .ret
 
-; rcx = 按钮 Transform，rdx = 文字（UTF-8）：设置它自己或第一层子物体上的 Text
+; rcx = 按钮 Transform，rdx = 文字（UTF-8）：设置它自己或子物体（最多 3 层）上的第一个 Text，并设为不换行
 setlabel:
+    push rbx
+    sub rsp, 0x30
+    mov rbx, rdx
+    mov edx, 3
+    call find_text
+    test rax, rax
+    jz .out
+    mov [rsp + 0x28], rax
+    mov rcx, rax                ; 不换行（复制的按钮文字比原按钮长）
+    mov edx, 1
+    xor r8d, r8d
+    call $$ + X_OVERFLOW
+    mov rcx, rbx
+    call $$ + X_STRNEW
+    mov rdx, rax
+    mov rcx, [rsp + 0x28]
+    xor r8d, r8d
+    call $$ + X_SETTEXT
+.out:
+    add rsp, 0x30
+    pop rbx
+    ret
+
+; rcx = Transform，edx = 还能往下找几层 → rax = Text 或 0（递归）
+find_text:
     push rsi
     push rdi
     push rbx
-    sub rsp, 0x30
+    sub rsp, 0x30               ; [20h] 下标
     mov rsi, rcx
-    mov rbx, rdx
-    mov rcx, rsi
+    mov ebx, edx
     mov rdx, [rel $$ + X_SLOTTEXT]
     call $$ + X_GETCOMP
     test rax, rax
-    jnz .set
+    jnz .ret
+    test ebx, ebx
+    jz .ret
     mov rcx, rsi
     xor edx, edx
     call $$ + X_CHILDN
@@ -264,7 +375,7 @@ setlabel:
 .lp:
     mov eax, [rsp + 0x20]
     cmp eax, edi
-    jge .out
+    jge .none
     inc dword [rsp + 0x20]
     mov rcx, rsi
     mov edx, eax
@@ -273,19 +384,14 @@ setlabel:
     test rax, rax
     jz .lp
     mov rcx, rax
-    mov rdx, [rel $$ + X_SLOTTEXT]
-    call $$ + X_GETCOMP
+    lea edx, [rbx - 1]
+    call find_text
     test rax, rax
     jz .lp
-.set:
-    mov [rsp + 0x28], rax
-    mov rcx, rbx
-    call $$ + X_STRNEW
-    mov rdx, rax
-    mov rcx, [rsp + 0x28]
-    xor r8d, r8d
-    call $$ + X_SETTEXT
-.out:
+    jmp .ret
+.none:
+    xor eax, eax
+.ret:
     add rsp, 0x30
     pop rbx
     pop rdi
@@ -398,7 +504,9 @@ wstreq:
 
 times 8 db 0xCC                 ; 代码结束标记（gen.py 用）
 align 4
-k_gap:   dd 8.0
+k_gap:   dd 10.0
+k_wide:  dd 1.6
+k_half:  dd 0.5
 w_start: dd 11
          dw __utf16__('hhAutoStart')
 align 4
@@ -411,5 +519,6 @@ s_auto:  db "自动出价", 0
 s_stop:  db "停止自动", 0
 align 8
 g_item:    dq 0
+g_ctrl:    dq 0
 g_auto:    db 0
 g_pending: db 0
