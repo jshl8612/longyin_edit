@@ -1,4 +1,4 @@
-// 拍卖自动出价：开拍按钮旁加「自动出价」（开拍并对这一件自动出价），出价按钮旁加「自动出价 / 停止自动」开关。
+// 拍卖自动出价：离开按钮右边加「自动出价」（开拍并对这一件自动出价），出价按钮旁加「自动出价 / 停止自动」开关。
 // 自动出价：当前出价人不是主角时，以「下一口价」出价，下一口价超过背包钱数就停止。
 // 做法：GameAssembly.dll 末尾新增可读写执行的代码节 .hhauct，放入 AutoBidCave 的机器码；挂三处：
 //   Button.Press 开头（按名字认出复制出来的按钮）、AuctionController.StartAuctionRoundButtonClicked 开头、
@@ -56,6 +56,13 @@ namespace LongYinMod
             t.Ext["Refresh"] = va("AuctionController", "RefreshOfferMoney", new[] { "newOfferMoney", "newOfferHero" });
             t.Ext["Player"] = va("WorldData", "Player", new string[0]);
             t.Ext["StrNew"] = pe.Export("il2cpp_string_new");
+            t.Ext["CTrans"] = vaCore("Component", "get_transform", new string[0]);
+            t.Ext["GetGo"] = vaCore("Component", "get_gameObject", new string[0]);
+            t.Ext["Parent"] = vaCore("Transform", "get_parent", new string[0]);
+            t.Ext["SetSize"] = vaCore("RectTransform", "set_sizeDelta", new[] { "value" });
+            t.Ext["Active"] = vaCore("GameObject", "get_activeSelf", new string[0]);
+            t.Ext["SetActive"] = vaCore("GameObject", "SetActive", new[] { "value" });
+            t.Ext["Overflow"] = vaUi("Text", "set_horizontalOverflow", new[] { "value" });
 
             // 钩子位置
             t.PressOff = pe.VaToOff(press); t.PressVa = press;
@@ -64,6 +71,7 @@ namespace LongYinMod
             if (Bin.IndexOf(dll, PushRbxSub20, (int)t.StartOff, (int)t.StartOff + 6) != t.StartOff) throw bad("开拍按钮函数开头");
             t.Ext["PressBack"] = press + 6;
             t.Ext["StartBack"] = start + 6;
+            t.Ext["StartRnd"] = start;          // 「自动出价」开拍按钮直接调用（会进入上面的挂钩）
 
             long u = pe.VaToOff(upd);
             int uend = (int)Math.Min(dll.Length, u + 0x700);
@@ -116,6 +124,7 @@ namespace LongYinMod
             Require(dll, u, 0x700, new byte[] { 0x80, 0xBB, 0xB4, 0x00, 0x00, 0x00, 0x00 }, "AuctionController.skipping(+B4h)");
             Require(dll, u, 0x700, new byte[] { 0xF3, 0x0F, 0x10, 0xB3, 0x94, 0x00, 0x00, 0x00 }, "AuctionController.offerRoundLeftTime(+94h)");
             Require(dll, t.StartOff, 0x80, new byte[] { 0x48, 0x8B, 0x4B, 0x28 }, "AuctionController.startAuctionButton(+28h)");
+            Require(dll, t.StartOff, 0x80, new byte[] { 0x48, 0x8B, 0x4B, 0x30 }, "AuctionController.leaveAuctionButton(+30h)");
             Require(dll, pe.VaToOff(va("AuctionController", "SetOfferHero", new[] { "targetHero" })), 0x80, new byte[] { 0x48, 0x89, 0xB3, 0x98, 0x00, 0x00, 0x00 }, "AuctionController.nowOfferHero(+98h)");
             Require(dll, pe.VaToOff(t.Ext["Next"]), 0x60, new byte[] { 0x48, 0x8B, 0x5B, 0x58 }, "AuctionController.auctionItemList(+58h)");
             long sure = pe.VaToOff(va("AuctionController", "SureOfferMoneyButtonClicked", new string[0]));
