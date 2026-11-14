@@ -1,6 +1,6 @@
 import capstone,sys
 b=open('cave.bin','rb').read()
-ext={0x10000000:'Player',0x11000000:'Concat',0x12000000:'StrNew',0x13000000:'Color',0x14000000:'AddTab',0x15000000:'ClassSlot',0x16000000:'Back'}
+ext={0x10000000:'Player',0x11000000:'Concat',0x12000000:'StrNew',0x13000000:'Color',0x14000000:'AddTab',0x15000000:'ClassSlot',0x16000000:'Back',0x17000000:'GetForce'}
 md=capstone.Cs(capstone.CS_ARCH_X86,capstone.CS_MODE_64); md.detail=True
 code_end=b.find('背包'.encode())
 fix=[]
@@ -9,7 +9,7 @@ for i in md.disasm(b[:code_end],0):
     if i.mnemonic in('call','jmp') and i.op_str.startswith('0x'): tgt=int(i.op_str,16)
     elif 'rip' in i.op_str: tgt=i.address+i.size+i.disp
     if tgt in ext: fix.append((i.address+i.size-4, ext[tgt]))
-assert len(fix)==11, fix
+assert len(fix)==12, fix
 bb=bytearray(b)
 for o,_ in fix: bb[o:o+4]=b'\0\0\0\0'
 hexs=', '.join(f'0x{x:02X}' for x in bb)

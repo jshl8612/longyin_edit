@@ -1,4 +1,5 @@
-// 秘籍持有数量提示：鼠标放在秘籍上时，在特效说明框下面再加一个框，显示主角背包 / 个人仓库里同一门武学秘籍的数量（按品质颜色）。
+// 秘籍持有数量提示：鼠标放在秘籍上时，在特效说明框下面再加一个框，显示同一门武学秘籍的数量（按品质颜色）：
+//   背包（总显示）、仓库、宗门仓库、藏经阁（这三行没有就不显示；门派取主角所属门派）。
 // 做法：GameAssembly.dll 末尾新增一个代码节 .hhbook，放入 BookCountCave 的机器码；
 //       把 QuickDetail.ShowBookQuickDetail 尾声的第一条指令（movaps xmm6,[rsp+40h]）换成 jmp 到新代码，执行完再跳回。
 using System;
@@ -50,6 +51,7 @@ namespace LongYinMod
             t.Ext["Color"] = va("GlobalData", "GenerateRareLvColorText", new[] { "text", "rareLv" });
             t.Ext["Concat"] = corlib.MethodVa(m.FindMethod("String", "Concat", new[] { "str0", "str1" }).Token);
             t.Ext["StrNew"] = pe.Export("il2cpp_string_new");
+            t.Ext["GetForce"] = va("HeroData", "GetForce", new[] { "includeServant" });
 
             long f = pe.VaToOff(show);
             if (f < 0) throw new ModException("ShowBookQuickDetail 地址无效");
@@ -87,6 +89,9 @@ namespace LongYinMod
             Require(dll, pe.VaToOff(va("ItemListData", "RebuildItemTypeList", new string[0])), 0x400, new byte[] { 0x8B, 0x50, 0x14 }, "ItemData.type(+14h)");
             Require(dll, pe.VaToOff(va("HeroData", "LoseAllItem", new string[0])), 0x100, new byte[] { 0x48, 0x8B, 0x86, 0x20, 0x02, 0x00, 0x00 }, "HeroData.itemListData(+220h)");
             Require(dll, pe.VaToOff(va("PlotController", "OpenSelfStorage", new string[0])), 0x200, new byte[] { 0x28, 0x02, 0x00, 0x00 }, "HeroData.selfStorage(+228h)");
+            Require(dll, pe.VaToOff(va("PlotController", "OpenOtherForceStorage", new[] { "maxItemLv" })), 0x400, new byte[] { 0x48, 0x8B, 0x98, 0xA0, 0x00, 0x00, 0x00 }, "ForceData.forceStorage(+A0h)");
+            Require(dll, pe.VaToOff(va("ForceData", "BookStorageFindSkill", new[] { "_skillID" })), 0x100, new byte[] { 0x48, 0x8B, 0x86, 0xB8, 0x00, 0x00, 0x00 }, "ForceData.bookStorage(+B8h)");
+            Require(dll, pe.VaToOff(t.Ext["GetForce"]), 0x40, new byte[] { 0x8B, 0x83, 0x84, 0x00, 0x00, 0x00 }, "HeroData.GetForce");
             return t;
         }
 
