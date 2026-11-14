@@ -1,6 +1,8 @@
 // 首次研读也可跳过：原版只有「这门武学这个品级研读过」才问是否跳过（跳过得 记录 × 90%）。
-// 补丁后没有记录时，用主角所有武学同品级的最高研读经验（没有就用所有品级的最高）作参考，
-// 写入记录 = 最高值 × 0.8 / 0.9，再走原版跳过流程，跳过实得 = 最高值 × 80%。
+// 补丁后没有记录时，看主角研读过的、武学等级（KungFuData 等级）相同的武学：
+//   取它们在本秘籍品级上的最高研读经验（没有就取它们所有品级的最高）× 80% 作为跳过实得；
+//   同等级一门都没研读过时，用内置默认值（ReadSkipCave 末尾，按武学等级 0~5）。
+// 写入记录 = 实得 / 0.9，再走原版跳过流程。
 // 做法：GameAssembly.dll 末尾新增代码节 .hhread，放入 ReadSkipCave 的机器码；
 //       ReadBookController.RealStartReadBook 里两处「进入研读面板」的条件跳转改为跳到新代码。
 using System;
@@ -42,6 +44,7 @@ namespace LongYinMod
             t.Ext["AddRec"] = va("HeroData", "AddSkillMaxPracticeExp", new[] { "target" });
             t.Ext["ObjNew"] = pe.Export("il2cpp_object_new");
             t.Ext["Wb"] = pe.Export("il2cpp_gc_wbarrier_set_field");
+            t.Ext["Db"] = va("KungfuSkillLvData", "DataBase", new string[0]);
 
             long f = pe.VaToOff(rsr);
             if (f < 0) throw new ModException("RealStartReadBook 地址无效");
@@ -78,6 +81,17 @@ namespace LongYinMod
             Require(dll, f, 0x400, new byte[] { 0x48, 0x89, 0xBE, 0xB8, 0x00, 0x00, 0x00 }, "ReadBookController.武学(+B8h)");
             Require(dll, f, 0x400, new byte[] { 0x8B, 0x50, 0x10 }, "KungfuSkillLvData.skillID(+10h)");
             Require(dll, pe.VaToOff(getMax), 0x80, new byte[] { 0x48, 0x8B, 0x8D, 0x50, 0x02, 0x00, 0x00 }, "HeroData.skillMaxPracticeExpData(+250h)");
+            // DataBase() 只用 this+10h 的 skillID 去查武学表（新代码用栈上的假对象调用它）
+            {
+                long db = pe.VaToOff(t.Ext["Db"]);
+                ulong gsd = va("GameDataController", "GetSkillDataBase", new[] { "skillID" });
+                int k = Unique(dll, new byte[] { 0x8B, 0x53, 0x10 }, (int)db, (int)db + 0xC0, "KungfuSkillLvData.DataBase 读取 skillID");
+                bool jmpOk = false;
+                for (int q = k; q < k + 0x20; q++)
+                    if (dll[q] == 0xE9 && pe.OffToVa(q) + 5 + (ulong)(long)Bin.I32(dll, q + 1) == gsd) { jmpOk = true; break; }
+                if (!jmpOk) throw new ModException("首次研读跳过：KungfuSkillLvData.DataBase 与预期不同");
+            }
+            Require(dll, pe.VaToOff(panelFn), 0x1000, new byte[] { 0x2B, 0x48, 0x34 }, "KungFuData.等级(+34h)");
             Require(dll, pe.VaToOff(t.Ext["Ctor"]), 0x100, new byte[] { 0x48, 0x8D, 0x4F, 0x18 }, "SkillMaxPracticeExpData 构造");
             Require(dll, pe.VaToOff(va("ReadBookController", "AutoReadBook", new string[0])), 0x100, new byte[] { 0xF3, 0x0F, 0x59, 0xB0, 0x68, 0x01, 0x00, 0x00 }, "跳过经验比例的位置");
             Require(dll, pe.VaToOff(va("GlobalData", ".cctor", new string[0])), 0x8000, new byte[] { 0xC7, 0x81, 0x68, 0x01, 0x00, 0x00, 0x66, 0x66, 0x66, 0x3F }, "跳过经验比例（90%）");
