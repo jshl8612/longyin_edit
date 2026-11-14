@@ -20,7 +20,7 @@ namespace LongYinMod
     public static class EditorHost
     {
         static string gameDir, saveDir, token, page;
-        static DateTime lastPing = DateTime.MinValue, started = DateTime.Now;
+        static DateTime lastPing = DateTime.MinValue, started = DateTime.Now, byeAt = DateTime.MinValue;
         static volatile bool quit;
 
         [STAThread]
@@ -55,12 +55,18 @@ namespace LongYinMod
                 string url = "http://127.0.0.1:" + port + "/?t=" + token;
                 if (args.Contains("--nobrowser")) Console.WriteLine(url); else OpenWindow(url);
 
-                // 等待：页面每 4 秒报一次平安；窗口关掉后（20 秒无消息）退出。启动后 3 分钟内一直没连上也退出。
+                // 等待退出：
+                //   · 关窗口时页面发 /api/bye，之后 8 秒内没有新请求（刷新页面会马上重新连上）就退出；
+                //   · 页面在后台时浏览器会放慢 / 暂停定时器，心跳可能几分钟才来一次，所以不能按心跳超时退出，
+                //     只在 2 小时完全没有动静时退出（浏览器异常关闭时的兜底）；
+                //   · 启动后 3 分钟内一直没连上也退出。
                 while (!quit)
                 {
                     Thread.Sleep(1000);
-                    if (lastPing == DateTime.MinValue) { if ((DateTime.Now - started).TotalMinutes > 3) break; }
-                    else if ((DateTime.Now - lastPing).TotalSeconds > 20) break;
+                    var now = DateTime.Now;
+                    if (lastPing == DateTime.MinValue) { if ((now - started).TotalMinutes > 3) break; }
+                    else if (byeAt > lastPing && (now - byeAt).TotalSeconds > 8) break;
+                    else if ((now - lastPing).TotalHours > 2) break;
                 }
                 listener.Stop();
                 return 0;
@@ -306,9 +312,10 @@ namespace LongYinMod
 
             try
             {
-                if (method == "GET" && path == "/") { lastPing = DateTime.Now; Send(ns, 200, "text/html; charset=utf-8", page); return; }
-                if (path == "/api/ping") { lastPing = DateTime.Now; Send(ns, 200, "text/plain", "ok"); return; }
-                if (path == "/api/bye") { lastPing = DateTime.Now.AddSeconds(-14); Send(ns, 200, "text/plain", "ok"); return; }   // 关窗后约 6 秒退出；刷新页面会马上重新报到
+                lastPing = DateTime.Now;   // 任何带口令的请求都算还活着
+                if (method == "GET" && path == "/") { Send(ns, 200, "text/html; charset=utf-8", page); return; }
+                if (path == "/api/ping") { Send(ns, 200, "text/plain", "ok"); return; }
+                if (path == "/api/bye") { byeAt = DateTime.Now.AddMilliseconds(1); Send(ns, 200, "text/plain", "ok"); return; }   // 关窗后约 8 秒退出；刷新页面会马上重新报到
                 if (method == "GET" && path == "/api/list")
                 {
                     var dir = Resolve(qs.ContainsKey("path") ? qs["path"] : "", true);

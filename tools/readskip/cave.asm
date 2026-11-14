@@ -1,9 +1,7 @@
-; 首次研读也可跳过：ReadBookController.RealStartReadBook 里，没有本品级研读记录时原本直接进研读面板；
-; 这里改为当作已经研读过：在主角所有研读记录里，找「武学等级」（KungFuData 等级）与这本秘籍的武学相同的记录，
-;   M = 这些记录在本秘籍品级上的最高值（都没有就取这些记录所有品级的最高值），把 M 写成这门武学这个品级的研读记录；
-;   同等级一条记录都没有时，记录 = 默认值 / 0.9（按武学等级 0~5，默认值是跳过实得）。
-; 然后走原版「是否跳过」流程：跳过实得 = 记录 × 0.9（原版比例），即同等级最高研读经验的 90%。
-; 没有记录对象就新建并加到人物身上。
+; 首次研读也可跳过：ReadBookController.RealStartReadBook 里，这门武学这个品级没有研读记录时原本直接进研读面板；
+; 这里改为当作已经研读过：记录 = 默认值 / 0.9（默认值按这门武学的「武学等级」KungFuData 等级 0~5，是跳过实得），
+; 然后走原版「是否跳过」流程：跳过实得 = 记录 × 0.9 = 默认值。
+; 没有记录对象就新建（类指针取自人物已有的任意一条研读记录）并加到人物身上。
 ; 进入：rsi = ReadBookController(this)，r12 = 0，rsp 16 字节对齐。
 ; 可用：rax rcx rdx r8-r11 rbx rdi r14（原函数已保存）；不能动 rsi r12 r13 r15 rbp。
 bits 64
@@ -29,8 +27,7 @@ EXT_DB      equ 0x16000000   ; KungfuSkillLvData.DataBase()（只读 this+10h �
 %define OFF_SKILLID  0x10    ; KungfuSkillLvData.skillID
 %define OFF_KFLV     0x34    ; KungFuData 等级
 
-; 栈：20h 下标  24h 个数  28h 目标等级  2Ch 同品级最高  30h 任意品级最高  34h 结果
-;     38h 类指针  40h..5Fh 假 KungfuSkillLvData（只用 +10h）
+; 栈：34h 结果  38h 类指针  40h..5Fh 假 KungfuSkillLvData（只用 +10h）
 %define S_IDX   0x20
 %define S_CNT   0x24
 %define S_LV    0x28
@@ -58,83 +55,36 @@ start:
     call kflv
     cmp eax, 5
     ja panel
-    mov [rsp + S_LV], eax
+    lea rdx, [defaults]                ; 记录 = 默认值 / 0.9
+    movss xmm0, [rdx + rax * 4]
+    divss xmm0, [k_90]
+    movss [rsp + S_RES], xmm0
 
+    ; 类指针：人物已有的任意一条研读记录（新建记录对象时要用）
     xor eax, eax
-    mov [rsp + S_IDX], eax
-    mov [rsp + S_MSAME], eax
-    mov [rsp + S_MANY], eax
     mov [rsp + S_KLASS], rax
     mov rcx, [rbx + OFF_RECLIST]
     test rcx, rcx
-    jz panel
-    mov eax, [rcx + 0x18]
-    mov [rsp + S_CNT], eax
-
+    jz .kend
+    mov r8, [rcx + 0x10]
+    mov r9d, [rcx + 0x18]
+    test r8, r8
+    jz .kend
+    cmp r9d, [r8 + 0x18]
+    jbe .k0
+    mov r9d, [r8 + 0x18]
+.k0:
+    xor r10d, r10d
 .k:
-    mov eax, [rsp + S_IDX]
-    cmp eax, [rsp + S_CNT]
+    cmp r10d, r9d
     jge .kend
-    inc dword [rsp + S_IDX]
-    mov rcx, [rbx + OFF_RECLIST]       ; 每次重新取，调用过游戏函数
-    test rcx, rcx
-    jz .kend
-    cmp eax, [rcx + 0x18]
-    jge .kend
-    mov rcx, [rcx + 0x10]
-    test rcx, rcx
-    jz .kend
-    cmp eax, [rcx + 0x18]
-    jae .kend
-    mov r14, [rcx + rax * 8 + 0x20]
-    test r14, r14
+    mov r11, [r8 + r10 * 8 + 0x20]
+    inc r10d
+    test r11, r11
     jz .k
-    mov rax, [r14]
-    mov [rsp + S_KLASS], rax           ; 类指针（任意一条记录都行）
-    mov eax, [r14 + OFF_RECSKILL]
-    call kflv
-    cmp eax, [rsp + S_LV]
-    jne .k
-    mov rax, [r14 + OFF_READEXP]
-    test rax, rax
-    jz .k
-    mov rdx, [rax + 0x10]
-    mov ecx, [rax + 0x18]
-    test rdx, rdx
-    jz .k
-    cmp ecx, [rdx + 0x18]
-    jbe .j0
-    mov ecx, [rdx + 0x18]
-.j0:
-    movss xmm0, [rsp + S_MSAME]
-    movss xmm1, [rsp + S_MANY]
-    cmp edi, ecx
-    jae .j1
-    maxss xmm0, [rdx + rdi * 4 + 0x20]
-.j1:
-    dec ecx
-    js .j2
-    maxss xmm1, [rdx + rcx * 4 + 0x20]
-    jmp .j1
-.j2:
-    movss [rsp + S_MSAME], xmm0
-    movss [rsp + S_MANY], xmm1
-    jmp .k
-
+    mov rax, [r11]
+    mov [rsp + S_KLASS], rax
 .kend:
-    xorps xmm2, xmm2
-    movss xmm0, [rsp + S_MSAME]
-    comiss xmm0, xmm2
-    ja .scale
-    movss xmm0, [rsp + S_MANY]
-    comiss xmm0, xmm2
-    ja .scale
-    mov eax, [rsp + S_LV]              ; 同等级没有记录：默认值（已是实得）
-    lea rdx, [defaults]
-    movss xmm0, [rdx + rax * 4]
-    divss xmm0, [k_90]
-.scale:                                ; 有同等级记录：记录 = M（跳过时原版再 × 0.9）
-    movss [rsp + S_RES], xmm0
 
     ; 本门武学的记录对象
     mov rax, [rsi + OFF_REC]

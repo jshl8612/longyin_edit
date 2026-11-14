@@ -673,7 +673,7 @@ namespace LongYinMod
             plan.Features.Add(new Feature { Key = FBook, Title = "秘籍持有数量提示", Files = new[] { nDll },
                 Desc = "悬停秘籍时多一个框，显示背包 / 仓库 / 宗门仓库 / 藏经阁里的数量", Installed = bookOn(dll.Current) });
             plan.Features.Add(new Feature { Key = FRead, Title = "首次研读也可跳过", Files = new[] { nDll },
-                Desc = "没研读过的秘籍当作研读过：按同武学等级最高研读经验记录，跳过得 90%", Installed = readOn(dll.Current) });
+                Desc = "没研读过的武学当作研读过：跳过得按武学等级的默认经验（400/900/1500/2100/2600/3100）", Installed = readOn(dll.Current) });
             plan.Features.Add(new Feature { Key = FAuct, Title = "拍卖自动出价", Files = new[] { nDll },
                 Desc = "开拍 / 出价按钮旁加「自动出价」，别人出价就自动跟，上限是背包钱数", Installed = auctOn(dll.Current) });
             plan.Features.Add(new Feature { Key = FLib, Title = "本门武学看藏经阁", Files = new[] { nDll },
