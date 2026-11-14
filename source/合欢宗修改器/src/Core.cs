@@ -331,6 +331,12 @@ namespace LongYinMod
         // 在文件末尾新增一个可执行节，返回新文件；caveVa = 新节的虚拟地址
         public static byte[] AddSection(byte[] data, string name, int size, out ulong caveVa)
         {
+            return AddSection(data, name, size, 0x60000020u, out caveVa);
+        }
+
+        // characteristics：0x60000020 = 代码 | 可执行 | 可读；0xE0000020 再加可写（代码里带变量时用）
+        public static byte[] AddSection(byte[] data, string name, int size, uint characteristics, out ulong caveVa)
+        {
             var img = new PeImage(data);
             int pe = Bin.I32(data, 0x3C);
             int nsec = Bin.U16(data, pe + 6);
@@ -356,7 +362,7 @@ namespace LongYinMod
             Array.Copy(BitConverter.GetBytes(va), 0, o, hdr + 12, 4);
             Array.Copy(BitConverter.GetBytes(rawSize), 0, o, hdr + 16, 4);
             Array.Copy(BitConverter.GetBytes(rawPtr), 0, o, hdr + 20, 4);
-            Array.Copy(BitConverter.GetBytes(0x60000020u), 0, o, hdr + 36, 4);   // code | execute | read
+            Array.Copy(BitConverter.GetBytes(characteristics), 0, o, hdr + 36, 4);
             Array.Copy(BitConverter.GetBytes((ushort)(nsec + 1)), 0, o, pe + 6, 2);
             Array.Copy(BitConverter.GetBytes((uint)align(va + size, secAlign)), 0, o, opt + 56, 4);   // SizeOfImage
             caveVa = img.ImageBase + va;
@@ -418,6 +424,24 @@ namespace LongYinMod
             return Encoding.UTF8.GetString(D, o, e - o);
         }
 
+        // 带命名空间查找（如 UnityEngine.Object 与 System.Object 同名）
+        public int FindType(string ns, string name)
+        {
+            int n = typeSize / TSZ;
+            for (int i = 0; i < n; i++)
+                if (Str(Bin.I32(D, typeOff + i * TSZ)) == name && Str(Bin.I32(D, typeOff + i * TSZ + 4)) == ns) return i;
+            return -1;
+        }
+
+        // 字符串常量（metadata usage 解码后的下标）
+        public string Literal(int index)
+        {
+            int lo = Bin.I32(D, 8), lsz = Bin.I32(D, 12), dataOff = Bin.I32(D, 16);
+            if (index < 0 || index >= lsz / 8) return null;
+            int len = Bin.I32(D, lo + index * 8), di = Bin.I32(D, lo + index * 8 + 4);
+            return Encoding.UTF8.GetString(D, dataOff + di, len);
+        }
+
         public int FindType(string name)
         {
             int n = typeSize / TSZ;
@@ -450,7 +474,16 @@ namespace LongYinMod
 
         public MethodRef FindMethod(string type, string method, string[] paramNames)
         {
-            int t = FindType(type);
+            return FindMethodIn(FindType(type), type, method, paramNames);
+        }
+
+        public MethodRef FindMethod(string ns, string type, string method, string[] paramNames)
+        {
+            return FindMethodIn(FindType(ns, type), ns + "." + type, method, paramNames);
+        }
+
+        MethodRef FindMethodIn(int t, string type, string method, string[] paramNames)
+        {
             if (t < 0) throw new ModException("代码中找不到类 " + type);
             foreach (var m in Methods(t))
             {
