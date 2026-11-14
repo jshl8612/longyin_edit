@@ -17,6 +17,7 @@
   .sv-head .p { font-family: 'JetBrains Mono', monospace; font-size: 11px; opacity: 0.55; flex: 1; }
   .sv-card { display: flex; align-items: center; gap: 16px; padding: 14px 18px; border: 1px solid var(--paper-line); background: var(--paper); margin-bottom: 8px; cursor: pointer; transition: border-color .15s, transform .15s; }
   .sv-card:hover { border-color: var(--vermillion); transform: translateX(3px); }
+  .sv-kind { font-style: normal; font-size: 11px; margin-left: 8px; padding: 0 6px; border: 1px solid var(--vermillion); color: var(--vermillion); border-radius: 2px; }
   .sv-no { font-family: 'Cormorant Garamond', serif; font-size: 28px; width: 34px; text-align: center; color: var(--vermillion); }
   .sv-main { flex: 1; min-width: 0; }
   .sv-name { font-size: 15px; font-weight: 600; }

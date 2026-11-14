@@ -112,7 +112,7 @@ namespace LongYinMod
             split.Controls.Add(leftPanel, 0, 0);
             split.Controls.Add(rightPanel, 1, 0);
             lvSlots = new ListView { Dock = DockStyle.Fill, View = View.Details, FullRowSelect = true, HideSelection = false, MultiSelect = false, GridLines = true };
-            lvSlots.Columns.Add("槽位", 50);
+            lvSlots.Columns.Add("槽位", 70);
             lvSlots.Columns.Add("角色", 80);
             lvSlots.Columns.Add("游戏日期", 90);
             lvSlots.Columns.Add("门派", 140);
@@ -277,7 +277,7 @@ namespace LongYinMod
                 slots = Saves.List(Game());
                 foreach (var s in slots)
                 {
-                    var it = new ListViewItem(new[] { s.Index.ToString(), s.Character, s.GameDate, Saves.StripTags(s.ForceLine), s.SaveMtime.ToString("MM-dd HH:mm") });
+                    var it = new ListViewItem(new[] { s.Index + (s.Index == 0 ? " 自动" : s.Index == 10 ? " 快速" : ""), s.Character, s.GameDate, Saves.StripTags(s.ForceLine), s.SaveMtime.ToString("MM-dd HH:mm") });
                     it.Tag = s;
                     lvSlots.Items.Add(it);
                 }
