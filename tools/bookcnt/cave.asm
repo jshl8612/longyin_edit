@@ -1,7 +1,11 @@
-; 秘籍持有数量提示：在 QuickDetail.ShowBookQuickDetail 末尾（所有特效框之后）追加一个说明框
-; 行：背包（总显示，没有写「无」）、仓库、宗门仓库、藏经阁（后三行数量为 0 时不显示）
-; 进入时：r13 = QuickDetail(this)，r15 = 悬停的 ItemData；rsp 16 字节对齐。
-; 所有寄存器在原函数尾声都会从栈恢复，这里可以随意使用（r13/r15 只读）。
+; 秘籍持有数量提示：鼠标放在秘籍或武功上时，在说明框最后追加一个框，显示同一门武学的秘籍
+;   在主角背包 / 仓库 / 宗门仓库 / 藏经阁里的数量（按品质颜色）。数量为 0 的行不显示；
+;   全都没有时显示「背包：无」。
+; 两个入口（C# 按偏移挂钩）：
+;   +0 QuickDetail.ShowBookQuickDetail 末尾：r13 = QuickDetail(this)，r15 = 悬停的 ItemData
+;   +5 QuickDetail.ShowSkillQuickDetail 末尾：r15 = QuickDetail(this)，rdi = KungfuSkillLvData
+;   两处 rsp 都是 16 字节对齐，被替换的原指令都是 movaps xmm6,[rsp+N]。
+; 原函数尾声会从栈恢复 rbx rbp rsi rdi r14（以及各自 push 的），r12 / r13 由 bookinfo 自己保存。
 bits 64
 default rel
 org 0
@@ -12,9 +16,10 @@ EXT_CONCAT  equ 0x11000000   ; String.Concat(str0,str1)
 EXT_STRNEW  equ 0x12000000   ; il2cpp_string_new(const char*)
 EXT_COLOR   equ 0x13000000   ; GlobalData.GenerateRareLvColorText(text,rareLv)
 EXT_ADDTAB  equ 0x14000000   ; QuickDetail.AddDescribeTab(_text)
-EXT_CLASS   equ 0x15000000   ; 原函数取 WorldData 用的类指针槽（rip 相对）
-EXT_BACK    equ 0x16000000   ; 返回原函数（被替换指令的下一条）
+EXT_WORLD   equ 0x15000000   ; 取 WorldData 所在对象的静态 getter（自带初始化）
+EXT_BACK    equ 0x16000000   ; 返回 ShowBookQuickDetail（被替换指令的下一条）
 EXT_FORCE   equ 0x17000000   ; HeroData.GetForce(includeServant)
+EXT_BACK2   equ 0x18000000   ; 返回 ShowSkillQuickDetail（被替换指令的下一条）
 
 ; 偏移（游戏 1.1.3）
 %define OFF_ITEMLIST   0x220   ; HeroData.itemListData
@@ -24,29 +29,52 @@ EXT_FORCE   equ 0x17000000   ; HeroData.GetForce(includeServant)
 %define OFF_RARE       0x40    ; ItemData.rareLv
 %define OFF_BOOK       0x70    ; ItemData.bookData
 %define OFF_SKILL      0x10    ; BookData.skillID
+%define OFF_KFSKILL    0x10    ; KungfuSkillLvData.skillID
 %define OFF_FSTORE     0xa0    ; ForceData.forceStorage（宗门仓库）
 %define OFF_BSTORE     0xb8    ; ForceData.bookStorage（藏经阁）
 
-; 栈：计数 int[6] ×4 —— 背包 20h、仓库 38h、宗门仓库 50h、藏经阁 68h
-start:
-    sub rsp, 0x90
+entry_book:  jmp strict near book_entry       ; +0
+entry_skill: jmp strict near skill_entry      ; +5
+
+book_entry:
     test r15, r15
-    jz .done
+    jz .b
     mov rax, [r15 + OFF_BOOK]
     test rax, rax
-    jz .done
-    mov r12d, [rax + OFF_SKILL]
+    jz .b
+    mov edx, [rax + OFF_SKILL]
+    mov rcx, r13
+    call bookinfo
+.b:
+    movaps xmm6, [rsp + 0x40]          ; 被替换的原指令
+    jmp $$ + EXT_BACK
 
-    mov rax, [rel $$ + EXT_CLASS]
+skill_entry:
+    test rdi, rdi
+    jz .s
+    mov edx, [rdi + OFF_KFSKILL]
+    mov rcx, r15
+    call bookinfo
+.s:
+    movaps xmm6, [rsp + 0x30]          ; 被替换的原指令
+    jmp $$ + EXT_BACK2
+
+; rcx = QuickDetail，edx = skillID
+; 栈：计数 int[6] ×4 —— 背包 20h、仓库 38h、宗门仓库 50h、藏经阁 68h
+bookinfo:
+    push r12
+    push r13
+    push rbx
+    push rbp
+    sub rsp, 0x88
+    mov r13, rcx
+    mov r12d, edx
+
+    xor ecx, ecx
+    call $$ + EXT_WORLD
     test rax, rax
     jz .done
-    mov rax, [rax + 0xb8]
-    test rax, rax
-    jz .done
-    mov rcx, [rax]
-    test rcx, rcx
-    jz .done
-    mov rcx, [rcx + 0x20]
+    mov rcx, [rax + 0x20]
     test rcx, rcx
     jz .done
     xor edx, edx
@@ -84,12 +112,10 @@ start:
     lea rdx, [rsp + 0x68]
     call count
 .built:
-    lea rcx, [s_bag]                   ; 背包行总是显示
+    xor ebx, ebx                       ; rbx = 拼好的文字
+    lea rcx, [s_bag]
     lea rdx, [rsp + 0x20]
-    call build
-    test rax, rax
-    jz .done
-    mov rbx, rax
+    call addrow
     lea rcx, [s_store]
     lea rdx, [rsp + 0x38]
     call addrow
@@ -99,14 +125,26 @@ start:
     lea rcx, [s_books]
     lea rdx, [rsp + 0x68]
     call addrow
+    test rbx, rbx
+    jnz .add
+    lea rcx, [s_bag + 1]               ; 全都没有：「背包：无」
+    lea rdx, [rsp + 0x20]
+    call build
+    test rax, rax
+    jz .done
+    mov rbx, rax
+.add:
     mov rcx, r13
     mov rdx, rbx
     xor r8d, r8d
     call $$ + EXT_ADDTAB
 .done:
-    add rsp, 0x90
-    movaps xmm6, [rsp + 0x40]          ; 被替换的原指令
-    jmp $$ + EXT_BACK
+    add rsp, 0x88
+    pop rbp
+    pop rbx
+    pop r13
+    pop r12
+    ret
 
 ; rcx = ItemListData, rdx = int[6]，r12d = skillID（叶子函数，只用易失寄存器）
 count:
@@ -146,7 +184,8 @@ count:
 .r:
     ret
 
-; rcx = 前缀，rdx = int[6]：全为 0 就跳过，否则 rbx = rbx + build(...)
+; rcx = 前缀（以换行开头），rdx = int[6]：全为 0 就跳过；
+; 否则第一行 rbx = build(前缀去掉换行)，之后 rbx = rbx + build(前缀)
 addrow:
     sub rsp, 0x28
     mov eax, [rdx]
@@ -156,6 +195,13 @@ addrow:
     or eax, [rdx + 16]
     or eax, [rdx + 20]
     jz .r
+    test rbx, rbx
+    jnz .more
+    inc rcx                            ; 跳过开头的换行
+    call build
+    mov rbx, rax
+    jmp .r
+.more:
     call build
     test rax, rax
     jz .r
@@ -228,7 +274,7 @@ build:
     add rsp, 0x48
     ret
 
-s_bag:   db "背包：", 0
+s_bag:   db 10, "背包：", 0
 s_store: db 10, "仓库：", 0
 s_force: db 10, "宗门仓库：", 0
 s_books: db 10, "藏经阁：", 0
