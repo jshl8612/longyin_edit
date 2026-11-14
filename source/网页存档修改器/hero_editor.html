@@ -306,6 +306,7 @@
   .item-table .col-num input:hover { border-bottom-color: var(--paper-line); }
   .item-table .col-num input:focus { border-bottom-color: var(--vermillion); background: rgba(255,255,255,0.5); }
   .item-table .col-num input.changed { color: var(--vermillion); font-weight: 600; }
+  .item-table .calc-val { color: var(--ink-soft); font-size: 12px; cursor: help; }
   .item-table .col-act { width: 60px; text-align: right; }
   .item-table .col-equip { width: 36px; text-align: center; }
   .icon-btn {
@@ -1281,7 +1282,7 @@ function renderAttrTrio(title, titleEn, names, base, max, total, baseKey, maxKey
         <span class="qf-label">一键加点</span>
         <button class="btn btn-mini" data-qf-add="${baseKey}" data-qf-len="${names.length}">基础 +10</button>
         <button class="btn btn-mini" data-qf-add="${maxKey}" data-qf-len="${names.length}">上限 +10</button>
-        <span class="qf-label" style="margin-left:auto;opacity:0.5">点一下，所有项原值 +10。总值由游戏自动计算</span>
+        <span class="qf-label" style="margin-left:auto;opacity:0.5">点一下，所有项原值 +10。总值由游戏自动计算${maxKey === 'maxLivingSkill' ? '。生活技艺潜力游戏上限 100（超过按 100 算）' : ''}</span>
       </div>
       ${rows}
     </div>
@@ -1327,6 +1328,11 @@ function renderKungfu(hero) {
     if (e.f) forces.add(e.f);
   }
 
+  // 装备中的武功：旧版存档每门武功有 equiped；新版不存，按人物的装备记录（kungfuSkills 下标）判断
+  const eqIdx = new Set([hero.internalSkillSaveRecord, hero.dodgeSkillSaveRecord, hero.uniqueSkillSaveRecord,
+    ...(hero.attackSkillSaveRecord || [])].filter(x => typeof x === 'number' && x >= 0));
+  const isEq = (s, i) => s.equiped === undefined ? eqIdx.has(i) : s.equiped === true;
+
   let visibleCount = 0;
   const cards = skills.map((s, i) => {
     const e = lookupSkill(s.skillID);
@@ -1341,10 +1347,10 @@ function renderKungfu(hero) {
     visibleCount++;
     const lvName = KF_LV_NAME[e.l] || '';
     return `
-      <div class="kungfu-card ${s.equiped ? 'equiped' : ''}">
+      <div class="kungfu-card ${isEq(s, i) ? 'equiped' : ''}">
         <span class="kungfu-id">#${s.skillID}</span>
         <span class="kungfu-name">
-          ${s.equiped ? '★ ' : ''}<span class="kfl-${e.l ?? 0}" style="font-weight:500">${escapeHtml(e.n)}</span>
+          ${isEq(s, i) ? '★ ' : ''}<span class="kfl-${e.l ?? 0}" style="font-weight:500">${escapeHtml(e.n)}</span>
           <span style="font-size:10px;color:var(--ink-soft);margin-left:6px">${escapeHtml(e.c)} · ${escapeHtml(e.f)}${lvName ? ' · ' + lvName : ''}</span>
         </span>
         <div class="kungfu-lv">
@@ -1387,6 +1393,11 @@ function renderKungfu(hero) {
   `;
 }
 
+// 秘籍价值（与游戏 ItemData.CountValueAndWeight 相同）：500 × 2^itemLv × (1 + 0.2 × rareLv)
+function bookValue(it) {
+  return Math.round(500 * Math.pow(2, it.itemLv ?? 0) * (1 + 0.2 * (it.rareLv ?? 0)));
+}
+
 function renderItems(hero, kind) {
   const data = kind === 'inventory' ? hero.itemListData : hero.selfStorage;
   if (!data || !Array.isArray(data.allItem)) {
@@ -1422,7 +1433,9 @@ function renderItems(hero, kind) {
         <td class="col-name rare-${it.itemLv ?? 0}">${escapeHtml(it.name || '(无名)')}<span class="rare-dot r-${it.rareLv ?? 0}" title="rareLv ${it.rareLv ?? 0}"></span>${nameExtra}</td>
         <td class="col-type">${escapeHtml(ITEM_TYPES[it.type] || '?')}${it.type === 0 ? '/' + (EQUIP_SUBTYPES[it.subType] || '?') : ''}</td>
         <td class="col-rare rare-${it.itemLv ?? 0}">${'★'.repeat((it.itemLv ?? 0) + 1)}</td>
-        <td class="col-num"><input type="number" data-item-key="value" data-${kind}-idx="${idx}" value="${it.value ?? 0}"></td>
+        <td class="col-num">${'value' in it
+          ? `<input type="number" data-item-key="value" data-${kind}-idx="${idx}" value="${it.value ?? 0}">`
+          : `<span class="calc-val" title="新版存档不保存价值，读档时由游戏按物品表、等级、品阶计算">${it.type === 3 ? bookValue(it) : '自动'}</span>`}</td>
         <td class="col-num"><input type="number" data-item-key="itemLv" data-${kind}-idx="${idx}" value="${it.itemLv ?? 0}"></td>
         <td class="col-num"><input type="number" data-item-key="poisonNum" data-${kind}-idx="${idx}" value="${it.poisonNum ?? 0}" step="any"></td>
         <td class="col-act" style="width:80px">
@@ -1439,7 +1452,7 @@ function renderItems(hero, kind) {
         <div class="section-mark"></div>
         <div class="section-title">${kind === 'inventory' ? '随身包裹' : '私人仓库'}</div>
         <div class="section-actions">
-          <button class="btn btn-mini" data-${kind}-maxbooks title="把所有秘籍(type=3)的 rareLv 设为5，并按 itemLv 重算价值">秘籍稀有度拉满</button>
+          <button class="btn btn-mini" data-${kind}-maxbooks title="把所有秘籍(type=3)的品阶 rareLv 设为 5（红）。旧版存档同时重算价值；新版存档价值由游戏读档时计算">秘籍稀有度拉满</button>
         </div>
         <div class="section-title-en">${kind === 'inventory' ? 'inventory' : 'storage'}</div>
       </div>
@@ -1815,22 +1828,20 @@ function attachListeners(hero) {
     const maxBooksBtn = detail.querySelector(`[data-${kind}-maxbooks]`);
     if (maxBooksBtn) {
       maxBooksBtn.addEventListener('click', () => {
-        // 秘籍价值公式: BASE[itemLv] * (1 + rareLv*0.2)
-        const BOOK_BASE = [500, 1000, 2000, 4000, 8000, 16000];
         const books = data.allItem.filter(it => it.type === 3);
         if (books.length === 0) { showToast('没有秘籍', true); return; }
-        if (!confirm(`将 ${books.length} 本秘籍的 rareLv 设为 5（最高小分级），并按 itemLv 重算价值？\n（itemLv 大等级不变）`)) return;
+        const todo = books.filter(it => (it.rareLv ?? 0) !== 5).length;
+        if (todo === 0) { showToast(`${books.length} 本秘籍已经都是最高品阶`); return; }
+        if (!confirm(`将 ${todo} 本秘籍的品阶 rareLv 设为 5（红，最高）？\n（itemLv 等级不变；价值按游戏公式随品阶变化）`)) return;
         books.forEach(it => {
           it.rareLv = 5;
-          const lv = it.itemLv ?? 0;
-          const base = BOOK_BASE[lv] ?? (BOOK_BASE[BOOK_BASE.length - 1]);
-          it.value = Math.round(base * (1 + 5 * 0.2)); // rareLv=5 -> ×2.0
+          if ('value' in it) it.value = bookValue(it);   // 旧版存档才保存价值；新版不写，读档时游戏计算
         });
         markDirty();
         const panel = detail.querySelector(`[data-panel="${kind === 'inventory' ? 'items' : 'storage'}"]`);
         panel.innerHTML = renderItems(hero, kind);
         attachListeners(hero);
-        showToast(`已将 ${books.length} 本秘籍稀有度拉满并重算价值`);
+        showToast(`已将 ${todo} 本秘籍品阶拉满`);
       });
     }
   }
