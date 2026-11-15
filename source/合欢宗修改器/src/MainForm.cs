@@ -29,7 +29,7 @@ namespace LongYinMod
 
         public MainForm()
         {
-            Text = "龙胤立志传 · 合欢宗修改器";
+            Text = "龙胤立志传 · 合欢宗修改器 v" + Program.AppVersion;
             Font = UiFont;
             AutoScaleMode = AutoScaleMode.Dpi;
             ClientSize = new Size(940, 660);

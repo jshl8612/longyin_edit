@@ -14,8 +14,8 @@ if not TEMPLATE:
 def rep(old,new,count=1):
     global src
     n=src.count(old); assert n==count,(old[:60],n); src=src.replace(old,new)
-rep('<title>龙胤立志传 · 人物修改器</title>','<title>龙胤立志传 · 存档修改器</title>')
-rep('<div class="brand-en">Hero Editor</div>','<div class="brand-en">Save Editor</div>')
+rep('<title>龙胤立志传 · 人物修改器</title>','<title>龙胤立志传 · 存档修改器 v0.3.0</title>')
+rep('<div class="brand-en">Hero Editor</div>','<div class="brand-en">Save Editor · v0.3.0</div>')
 rep('<div class="drop-title">拖入 Hero 存档</div>','<div class="drop-title">拖入 Hero 或 Save 存档</div>')
 rep('<div class="drop-hint">本地解析 · 文件不会上传 · 支持 ~30MB JSON</div>','<div class="drop-hint">Hero = 人物修改 · Save = 城市 / 驻地地块扩建<br>本地解析 · 文件不会上传 · 支持 ~30MB JSON</div>')
 rep("types: [{ description: '龙胤立志传 Hero 存档', accept: { '*/*': [''] } }],","types: [{ description: '龙胤立志传 存档（Hero / Save）', accept: { '*/*': [''] } }],")

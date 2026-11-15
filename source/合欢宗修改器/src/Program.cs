@@ -5,12 +5,15 @@ using System.Windows.Forms;
 
 [assembly: System.Reflection.AssemblyTitle("LongYinMod")]
 [assembly: System.Reflection.AssemblyProduct("龙胤立志传 合欢宗修改器")]
-[assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
+[assembly: System.Reflection.AssemblyVersion("0.3.0.0")]
+[assembly: System.Reflection.AssemblyFileVersion("0.3.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersion("0.3.0")]
 
 namespace LongYinMod
 {
     static class Program
     {
+        public const string AppVersion = "0.3.0";   // 发布版本（GitHub Releases 标签 v0.3.0）
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         static extern bool SetProcessDPIAware();
 
