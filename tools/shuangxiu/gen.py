@@ -25,7 +25,7 @@ namespace LongYinMod
     static class ShuangXiuCave
     {{
         public static readonly byte[] Code = {{ {hexs} }};
-        // (rel32 位移字段在 Code 里的偏移, 目标名)；入口：+0 BuildingUIController.StudyMaxState，+5 PlotController.StudyFightOther，+10 经验条面板加实战经验
+        // (rel32 位移字段在 Code 里的偏移, 目标名)；入口：+0 BuildingUIController.StudyMaxState，+5 PlotController.StudyFightOther，+10 经验条面板加实战经验，+15 修炼需求
         public static readonly object[][] Fixups = {{ {fx} }};
     }}
 }}

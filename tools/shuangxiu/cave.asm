@@ -75,6 +75,12 @@ EXT X_SHOWEXP,     47  ; SpeShowController.ShowGetSkillExp(_targetSkill,_totalEx
 EXT X_HERONAME,    48  ; HeroData.HeroName(useSetName)
 EXT X_FIGHTRATE,   49  ; HeroData.GetFightExpRate(targetSkill)
 EXT X_F2S,         50  ; Single.ToString(format)（this = float*）
+EXT X_GETTRANS,    51  ; GameObject.get_transform()
+EXT X_GETRECT,     52  ; RectTransform.get_rect()（rcx = 返回缓冲）
+EXT X_GETLPOS,     53  ; Transform.get_localPosition()（rcx = 返回缓冲）
+EXT X_SETLPOS,     54  ; Transform.set_localPosition(value)（rdx = &value）
+EXT X_NEEDS,       55  ; AttriNumData.GetSkillNeedsDescribe(targetHero)
+EXT X_ACTIVE,      56  ; GameObject.get_activeSelf()
 
 %define H_ID       0x58   ; HeroData.heroID
 %define H_FEMALE   0x80   ; HeroData.isFemale
@@ -95,11 +101,15 @@ EXT X_F2S,         50  ; Single.ToString(format)（this = float*）
 %define KF_LV      0x34   ; KungFuData.等级
 %define MAXN       1000   ; 选人面板最多列出的人数
 %define WK_FINISHED 0x60  ; WorkingUIController.workFinished（自然结束 1，中途取消 0）
+%define SPE_NEWOBJ 0xA8   ; SpeShowController.newObj（刚加的那一条）
+%define CC_PANEL   0x18   ; ChooseController.choosePanel
+%define CC_PARAM   0x60   ; ChooseController.sendResultParam
 
 ; 入口表（C# 按偏移挂钩）
 entry_sms: jmp strict near sms_hook       ; +0  BuildingUIController.StudyMaxState(param)
 entry_sfo: jmp strict near sfo_hook       ; +5  PlotController.StudyFightOther(param)
 entry_exp: jmp strict near exp_thunk      ; +10 SkillExpShowPrefab.Update 里的 call AddSkillFightExp 改为 call 这里
+entry_nd:  jmp strict near needs_thunk    ; +15 KungfuSkillLvData.GetSkillDescribe 里「修炼需求」的 call GetSkillNeedsDescribe 改为 call 这里
 
 ; rdx = 参数字符串 → eax = "hhsxN" 的 N，不是则 -1；只改 rax、r10
 marker:
@@ -574,6 +584,7 @@ has_common:                         ; rcx = 第一位, rdx = 第二位或 0 → 
 ; ---------- 各步骤（由挂钩跳入，相当于原函数本身：结束时 ret 回游戏） ----------
 h0:                                 ; 建筑按钮
     sub rsp, 0x28
+    mov byte [G_SEL], 0
     mov dword [G_D1], -1
     mov dword [G_D2], -1
     mov ecx, -1
@@ -753,6 +764,7 @@ h3:                                 ; 开始双修：选内功
     xor edx, edx                    ; ChooseType.HeroSkill
     lea r8, [M5]
     mov r9d, 28                     ; 筛选：剧情目标人物和主角也会
+    mov byte [G_SEL], 1             ; 武学面板打开期间：修炼需求显示所有参与者
     call show_choose
 .r: add rsp, 0x48
     pop r12
@@ -764,6 +776,7 @@ h3:                                 ; 开始双修：选内功
 h5:                                 ; 选好内功：记下武学，关对话，开始「双修」进度（按等级过几天）
     push rbx
     sub rsp, 0x40
+    mov byte [G_SEL], 0
     lea rcx, [rel $$ + X_SLOTSKILL]
     call chosen
     test rax, rax
@@ -831,6 +844,7 @@ h6:                                 ; 进度结束：加经验（经验条面板
     push rdi
     push r12
     sub rsp, 0x28
+    mov dword [G_N], 0
     xor ecx, ecx
     call X_WKINST
     test rax, rax
@@ -868,6 +882,7 @@ h6:                                 ; 进度结束：加经验（经验条面板
     mov rcx, rdi
     call slot_use
 .end:
+    call arrange                    ; 几条经验条上下排开（面板本身不排列，会叠在一起）
     mov dword [G_D1], -1
     mov dword [G_D2], -1
     add rsp, 0x28
@@ -963,7 +978,228 @@ show_exp:
     mov [rsp + 0x20], rdi
     mov qword [rsp + 0x28], 0
     call X_SHOWEXP
+    xor ecx, ecx                    ; 记下新加的这一条（SpeShowController.newObj）
+    call X_SPEINST
+    test rax, rax
+    jz .r
+    mov rax, [rax + SPE_NEWOBJ]
+    mov ecx, [G_N]
+    cmp ecx, 3
+    jge .r
+    lea rdx, [G_OBJ]
+    mov [rdx + rcx * 8], rax
+    inc dword [G_N]
 .r: add rsp, 0x40
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; G_OBJ[0..G_N) 的经验条：以第一条原位置为中心，按条目高度上下排开（主角在上）
+arrange:
+    push rbx
+    push rsi
+    push rdi
+    push r12
+    sub rsp, 0x48
+    cmp dword [G_N], 2
+    jl .r
+    mov rcx, [G_OBJ]
+    test rcx, rcx
+    jz .r
+    xor edx, edx
+    call X_GETTRANS
+    test rax, rax
+    jz .r
+    mov rbx, rax
+    movss xmm0, [F_DEFH]
+    movss [rsp + 0x40], xmm0
+    mov rax, [rbx]                  ; 是 RectTransform 才取 rect 高度
+    mov rax, [rax + 0x10]           ; Il2CppClass.name
+    lea rcx, [S_RECT]
+.cmp:
+    mov dl, [rax]
+    cmp dl, [rcx]
+    jne .norect
+    test dl, dl
+    jz .isrect
+    inc rax
+    inc rcx
+    jmp .cmp
+.isrect:
+    lea rcx, [rsp + 0x20]
+    mov rdx, rbx
+    xor r8d, r8d
+    call X_GETRECT
+    movss xmm0, [rsp + 0x2C]        ; Rect.height
+    comiss xmm0, [F_ONE]
+    jbe .norect
+    addss xmm0, [F_GAP]
+    maxss xmm0, [F_MINH]
+    minss xmm0, [F_MAXH]
+    movss [rsp + 0x40], xmm0
+.norect:
+    lea rcx, [rsp + 0x30]
+    mov rdx, rbx
+    xor r8d, r8d
+    call X_GETLPOS                  ; 第一条原位置
+    xor esi, esi
+.lp:
+    cmp esi, [G_N]
+    jge .r
+    lea rax, [G_OBJ]
+    mov rcx, [rax + rsi * 8]
+    test rcx, rcx
+    jz .nx
+    xor edx, edx
+    call X_GETTRANS
+    test rax, rax
+    jz .nx
+    mov rdi, rax
+    mov eax, [G_N]
+    dec eax
+    cvtsi2ss xmm0, eax
+    mulss xmm0, [F_HALF]
+    cvtsi2ss xmm1, esi
+    subss xmm0, xmm1
+    mulss xmm0, [rsp + 0x40]
+    addss xmm0, [rsp + 0x34]        ; y = y0 + ((n-1)/2 - k) × 行高
+    mov eax, [rsp + 0x30]
+    mov [rsp + 0x20], eax
+    movss [rsp + 0x24], xmm0
+    mov eax, [rsp + 0x38]
+    mov [rsp + 0x28], eax
+    mov rcx, rdi
+    lea rdx, [rsp + 0x20]
+    xor r8d, r8d
+    call X_SETLPOS
+.nx:
+    inc esi
+    jmp .lp
+.r: add rsp, 0x48
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; 武学说明里的「修炼需求」：原来只算武学主人（选武学面板里是第一位弟子）。
+; 双修选武学面板打开时、说的是第一位的武学 → 主角、第一位、第二位各一行「名字：需求」（各自是否满足照原样上色）
+needs_thunk:                        ; rcx = AttriNumData（这门武学的需求，同 skillID 人人相同）, rdx = 人物, r8 = MethodInfo
+    push rbx
+    push rsi
+    push rdi
+    push r12
+    push r13
+    push r14
+    sub rsp, 0x28
+    mov rbx, rcx
+    mov rsi, rdx
+    cmp byte [G_SEL], 0
+    je .orig
+    test rsi, rsi
+    jz .orig
+    mov eax, [G_D1]
+    cmp [rsi + H_ID], eax
+    jne .orig
+    xor ecx, ecx
+    call X_CCINST
+    test rax, rax
+    jz .orig
+    mov rdi, rax
+    mov rdx, [rdi + CC_PARAM]       ; 当前面板是双修的武学面板（回调标记 hhsx5）
+    call marker
+    cmp eax, 5
+    jne .orig
+    mov rcx, [rdi + CC_PANEL]
+    test rcx, rcx
+    jz .orig
+    xor edx, edx
+    call X_ACTIVE
+    test al, al
+    jz .orig
+    call get_player
+    test rax, rax
+    jz .orig
+    mov rcx, rax
+    mov rdx, rbx
+    lea r8, [S_EMPTY]
+    call one_needs
+    mov r12, rax
+    mov rcx, rsi
+    mov rdx, rbx
+    lea r8, [S_NL]
+    call one_needs
+    mov rcx, r12
+    mov rdx, rax
+    xor r8d, r8d
+    call X_CONCAT2
+    mov r12, rax
+    mov ecx, [G_D2]
+    test ecx, ecx
+    js .done
+    call get_hero
+    test rax, rax
+    jz .done
+    mov rcx, rax
+    mov rdx, rbx
+    lea r8, [S_NL]
+    call one_needs
+    mov rcx, r12
+    mov rdx, rax
+    xor r8d, r8d
+    call X_CONCAT2
+    mov r12, rax
+.done:
+    mov rax, r12
+    jmp .r
+.orig:
+    mov rcx, rbx
+    mov rdx, rsi
+    xor r8d, r8d
+    call X_NEEDS
+.r: add rsp, 0x28
+    pop r14
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+one_needs:                          ; rcx = 人物, rdx = AttriNumData, r8 = 开头（C 字符串）→ 开头 + 名字 + "：" + 需求
+    push rbx
+    push rsi
+    push rdi
+    push r12
+    push r13
+    sub rsp, 0x30
+    mov rbx, rcx
+    mov rsi, rdx
+    mov rcx, r8
+    call X_STRNEW
+    mov rdi, rax
+    mov rcx, rbx
+    xor edx, edx
+    xor r8d, r8d
+    call X_HERONAME
+    mov r12, rax
+    mov rcx, rsi
+    mov rdx, rbx
+    xor r8d, r8d
+    call X_NEEDS
+    mov r13, rax
+    lea rcx, [S_COLON]
+    call X_STRNEW
+    mov rcx, rdi
+    mov rdx, r12
+    mov r8, rax
+    mov r9, r13
+    mov qword [rsp + 0x20], 0
+    call X_CONCAT4
+    add rsp, 0x30
     pop r13
     pop r12
     pop rdi
@@ -1014,9 +1250,17 @@ S_ADD:    db "增加实战经验 ", 0
 S_LP:     db " (", 0
 S_RP:     db "%)", 0
 S_PCTFMT: db "+0;-0;0", 0
+S_RECT:   db "RectTransform", 0
+S_EMPTY:  db 0
+S_NL:     db 10, 0
 align 4
 F_ONE:    dd 1.0
 F_100:    dd 100.0
+F_HALF:   dd 0.5
+F_GAP:    dd 10.0
+F_MINH:   dd 60.0
+F_MAXH:   dd 400.0
+F_DEFH:   dd 150.0                  ; 取不到高度时的行距
 ; 选项（plot 按顺序连续读取）
 C_MORE:   db "再唤一位;StudyFightOther;hhsx2", 0
           db "就我们二人;StudyFightOther;hhsx3", 0
@@ -1032,6 +1276,10 @@ G_I32:    dq 0                      ; System.Int32 类
 G_D1:     dd -1                     ; 第一位 heroID
 G_D2:     dd -1                     ; 第二位 heroID（-1 = 无）
 G_SID:    dd 0                      ; 选中的内功 skillID
+G_N:      dd 0                      ; 经验条条数
+G_SEL:    db 0, 0, 0, 0             ; 双修武学面板打开中
+align 8
+G_OBJ:    dq 0, 0, 0                ; 经验条 GameObject
 G_LV:     dd 0                      ; 它的武学等级（0~5）
 FL:       times 0x20 db 0           ; 假 List：+10h 数组，+18h 个数（ShowChoosePanel 只读这两项，并立即复制）
 FL2:      times 0x20 db 0

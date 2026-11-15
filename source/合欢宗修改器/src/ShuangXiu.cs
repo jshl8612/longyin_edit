@@ -5,7 +5,10 @@
 //   PlotController.StudyFightOther(param) 开头（选人 / 选武学面板的回调和剧情选项传 "hhsx1"~"hhsx5"）；
 //   参数不是这些标记时两个函数照常执行。合欢殿的互动选项在建筑表里（安装合欢殿时一起写入）。
 //   选好内功后用 WorkingUIController 过几天（天数同研读秘籍：等级 / 2 + 1），结束后在经验条面板（同研读秘籍后）给每人加一条；
-//   经验条面板原来固定给主角加经验，SkillExpShowPrefab.Update 里那个 call 改为调用新代码 +10：由武学的主人加。
+//   经验条面板原来固定给主角加经验，SkillExpShowPrefab.Update 里那个 call 改为调用新代码 +10：由武学的主人加；
+//   几条经验条由新代码上下排开（面板本身不排列）。
+//   武学说明的「修炼需求」原来只算武学主人，GetSkillDescribe 里那个 call 改为调用新代码 +15：
+//   双修选武学面板打开时，第一位的武学列出主角、第一位、第二位各自的需求。
 using System;
 using System.Collections.Generic;
 
@@ -19,7 +22,7 @@ namespace LongYinMod
         class SxTargets
         {
             public long SmsOff, SfoOff;
-            public ulong SmsVa, SfoVa, ExpCallVa;   // ExpCallVa：经验条面板里 call AddSkillFightExp 的位置
+            public ulong SmsVa, SfoVa, ExpCallVa, NeedsCallVa;   // NeedsCallVa：武学说明里「修炼需求」的 call GetSkillNeedsDescribe   // ExpCallVa：经验条面板里 call AddSkillFightExp 的位置
             public Dictionary<string, ulong> Ext = new Dictionary<string, ulong>(StringComparer.OrdinalIgnoreCase);
         }
 
@@ -102,6 +105,12 @@ namespace LongYinMod
             t.Ext["HeroName"] = va("HeroData", "HeroName", new[] { "useSetName" });
             t.Ext["FightRate"] = va("HeroData", "GetFightExpRate", new[] { "targetSkill" });
             t.Ext["F2S"] = vaSys("Single", "ToString", new[] { "format" });
+            t.Ext["GetTrans"] = vaCore("GameObject", "get_transform", none);
+            t.Ext["GetRect"] = vaCore("RectTransform", "get_rect", none);
+            t.Ext["GetLPos"] = vaCore("Transform", "get_localPosition", none);
+            t.Ext["SetLPos"] = vaCore("Transform", "set_localPosition", new[] { "value" });
+            t.Ext["Active"] = vaCore("GameObject", "get_activeSelf", none);
+            t.Ext["Needs"] = va("AttriNumData", "GetSkillNeedsDescribe", new[] { "targetHero" });
             // 剧情选项里用到的函数
             va("PlotController", "HideInteractUI", none);
             va("PlotController", "HideInteractUIOneDay", none);
@@ -180,6 +189,16 @@ namespace LongYinMod
             if (pcSlot == 0 || getterSlot(CallTarget(pe, dll, gc + 2)) != pcSlot) throw bad("进度结束回调的对象");
             fld("WorkingUIController", "finishFuc", 0x38); fld("WorkingUIController", "workFinished", 0x60);
             fld("SkillExpShowPrefab", "targetSkill", 0x18);
+            fld("SpeShowController", "newObj", 0xA8);
+            fld("ChooseController", "choosePanel", 0x18); fld("ChooseController", "sendResultParam", 0x60);
+            // 武学说明「修炼需求」：call GetSkillNeedsDescribe(r12 = 武学主人) ; comiss xmm8,xmm6 ; mov r14,[rip+"\n\n修炼需求{1}\n{0}"]
+            long gd = pe.VaToOff(va("KungfuSkillLvData", "GetSkillDescribe", new[] { "fullDetail", "showDamage", "bookDescribe" }));
+            int nh = -1, nhits = 0;
+            var np = Pat("E8 ?? ?? ?? ?? 44 0F 2F C6 4C 8B 35");
+            for (int q = Bin.IndexOfPattern(dll, np, (int)gd, (int)gd + 0x2000); q >= 0; q = Bin.IndexOfPattern(dll, np, q + 1, (int)gd + 0x2000))
+                if (CallTarget(pe, dll, q) == t.Ext["Needs"]) { nh = q; nhits++; }
+            if (nhits != 1) throw bad("武学说明里的修炼需求");
+            t.NeedsCallVa = pe.OffToVa(nh);
             // 研读天数 = floor(武学等级 × 0.5) + 1：movd xmm0,[rax+34h] ; cvtdq2ps ; mulss ; FloorToInt ; inc eax
             if (Require0(dll, pe.VaToOff(va("BookData", "ReadDayCost", none)), 0x100, new byte[] { 0x66, 0x0F, 0x6E, 0x40, 0x34, 0x33, 0xD2, 0x0F, 0x5B, 0xC0 }) < 0) throw bad("研读天数");
 
@@ -244,6 +263,9 @@ namespace LongYinMod
             // 经验条面板：call AddSkillFightExp → call 新代码 +10（按武学的主人加经验）
             long co = new PeImage(outb).VaToOff(t.ExpCallVa);
             Array.Copy(BitConverter.GetBytes((int)((long)(caveVa + 10) - (long)(t.ExpCallVa + 5))), 0, outb, co + 1, 4);
+            // 武学说明「修炼需求」：call GetSkillNeedsDescribe → call 新代码 +15（双修选武学时列出所有参与者）
+            long no = new PeImage(outb).VaToOff(t.NeedsCallVa);
+            Array.Copy(BitConverter.GetBytes((int)((long)(caveVa + 15) - (long)(t.NeedsCallVa + 5))), 0, outb, no + 1, 4);
             return outb;
         }
     }

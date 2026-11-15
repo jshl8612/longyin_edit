@@ -53,7 +53,10 @@ def iget(l): n=r32(l+0x18); arr=r64(l+0x10); return [r32(arr+0x20+4*k) for k in 
 world=alloc(0x40); wobj=alloc(0x40); w64(wobj+0x20,world)
 force=alloc(0x40); pc=alloc(0x100); pcgo=alloc(0x10); cc=alloc(0x100); gc=alloc(0x10); bu=alloc(0x10)
 CORLIB=0x3333000; I32K=0x3334000
-wk=alloc(0x80); spe=alloc(0x80); RATE={1:1.35,11:1.2,12:1.0}
+wk=alloc(0x80); spe=alloc(0x80); GO_T={}; TPOS={}; ATTRI=alloc(0x40); PANEL=alloc(0x10)
+def cname(n): a=alloc(0x20); mu.mem_write(a,n.encode()+b'\0'); k=alloc(0x40); w64(k+0x10,a); return k
+TRK={True:cname('RectTransform'),False:cname('Transform')}
+RATE={1:1.35,11:1.2,12:1.0}
 KF={}       # KungFuData 对象 -> (类型, 等级)
 SK={}       # KungfuSkillLvData -> (skillID, 名)
 HEROES={}
@@ -108,7 +111,14 @@ def hook(mu,addr,size,ud):
     elif n=='X_SPEINST': assert rcx==0; r=spe
     elif n=='X_SHOWEXP':
         assert rcx==spe and r9&0xffffffff==1 and arg(5)==0
+        go=alloc(0x20); tr=alloc(0x20); w64(tr,TRK[state.get('rect',True)]); GO_T[go]=tr; TPOS[tr]=(5.0,50.0,0.0); w64(spe+0xa8,go)
         state['log'].append(('show',r32(SK[rdx]['owner']+0x58),SK[rdx]['id'],f32(g(UC_X86_REG_XMM2)),STRS[arg(4)]))
+    elif n=='X_GETTRANS': assert rdx==0; r=GO_T[rcx]
+    elif n=='X_GETRECT': assert r8==0 and r64(rdx)==TRK[True]; mu.mem_write(rcx,struct.pack('<4f',-50,-50,300,100)); r=rcx
+    elif n=='X_GETLPOS': assert r8==0; mu.mem_write(rcx,struct.pack('<3f',*TPOS[rdx])); r=rcx
+    elif n=='X_SETLPOS': assert r8==0; v=struct.unpack('<3f',mu.mem_read(rdx,12)); TPOS[rcx]=v; state['log'].append(('pos',rcx,v))
+    elif n=='X_NEEDS': assert rcx==ATTRI and r8==0; r=mstr('需求%d'%r32(rdx+0x58))
+    elif n=='X_ACTIVE': assert rcx==PANEL and rdx==0; r=state.get('active',1)
     elif n=='X_HERONAME': assert rdx&0xff==0; r=mstr('人%d'%r32(rcx+0x58))
     elif n=='X_FIGHTRATE':
         assert SK[rdx]['owner']==rcx; mu.reg_write(UC_X86_REG_XMM0,struct.unpack('<I',struct.pack('<f',RATE[r32(rcx+0x58)]))[0])
@@ -165,7 +175,7 @@ def call(entry,param,thisobj=0):
     keep={reg:mu.reg_read(reg) for reg in KEEP}
     mu.reg_write(UC_X86_REG_RSP,rsp); mu.reg_write(UC_X86_REG_RCX,thisobj); mu.reg_write(UC_X86_REG_RDX,param)
     mu.emu_start(CAVE+entry,0x77770000,count=500000)
-    out=dict(log=state['log'])
+    out=dict(log=state['log'],rax=mu.reg_read(UC_X86_REG_RAX))
     last=state['log'][-1] if state['log'] else None
     if last in('X_SMSBACK','X_SFOBACK'):   # 已执行 3 个 push
         exp=[keep[UC_X86_REG_RBX],keep[UC_X86_REG_RSI] if last=='X_SMSBACK' else keep[UC_X86_REG_RBP],keep[UC_X86_REG_R13] if last=='X_SMSBACK' else keep[UC_X86_REG_R15]]
@@ -269,4 +279,31 @@ lg,okk=thunk(player,P_NG,7.0)
 check('面板加经验：主角的武学照旧由主角加', okk and lg==[('addexp',player,7.0,P_NG,0,0xABCD)], lg)
 orphan=skill(5,0,0,'无主'); lg,okk=thunk(player,orphan,1.0)
 check('找不到主人 → 照旧由主角加', okk and lg==[('addexp',player,1.0,orphan,0,0xABCD)], lg)
+# 经验条排开（3 条，RectTransform 高 100 → 行距 110；第一条原位置 y=50）
+w64(cc+0x18,PANEL)
+def full(d2=True,rect=True):
+    state['rect']=rect
+    for h in (A,B):
+        l=r64(r64(h+0x308)+0x10); w32(r64(l+0x10)+0x20+40*4,1)
+    w64(A+0x260,mlist([skill(100,0,3,'玉女心经')])); SK[lget(r64(A+0x260))[0]]['owner']=A
+    w64(player+0x260,mlist([P_NG])); SK[P_NG]['owner']=player
+    choose('hero',A); sfo('hhsx1')
+    if d2: sfo('hhsx2'); choose('hero',B); sfo('hhsx4')
+    r=sfo('hhsx3'); return r
+r=full(); w64(cc+0x60,mstr('hhsx5'))
+nd=call(15,A,ATTRI)
+check('武学面板里第一位的武学：修炼需求列出主角、第一位、第二位', nd['ok'] and STRS.get(nd['rax'])=='人1：需求1\n人11：需求11\n人12：需求12', STRS.get(nd['rax']))
+nd=call(15,B,ATTRI); check('别人的武学 → 照原样', nd['ok'] and STRS.get(nd['rax'])=='需求12', STRS.get(nd['rax']))
+state['active']=0; nd=call(15,A,ATTRI); check('面板已关 → 照原样', STRS.get(nd['rax'])=='需求11'); state['active']=1
+w64(cc+0x60,mstr('hhsx1')); nd=call(15,A,ATTRI); check('不是双修武学面板 → 照原样', STRS.get(nd['rax'])=='需求11'); w64(cc+0x60,mstr('hhsx5'))
+choose('skill',lget(r64(A+0x260))[0]); r=sfo('hhsx5')
+nd=call(15,A,ATTRI); check('选好武学后 → 照原样', STRS.get(nd['rax'])=='需求11')
+w8(wk+0x60,1); r=sfo('hhsx6'); ps=ev(r,'pos')
+check('结束 → 三条经验条上下排开（行距 110，主角在上）', r['ok'] and [p[2] for p in ps]==[(5.0,160.0,0.0),(5.0,50.0,0.0),(5.0,-60.0,0.0)], ps)
+r=full(d2=False); w64(cc+0x60,mstr('hhsx5'))
+nd=call(15,A,ATTRI); check('只有一位 → 修炼需求列出主角、她', STRS.get(nd['rax'])=='人1：需求1\n人11：需求11', STRS.get(nd['rax']))
+choose('skill',lget(r64(A+0x260))[0]); r=sfo('hhsx5'); r=sfo('hhsx6'); ps=ev(r,'pos')
+check('一位 → 两条（行距 110）', [p[2] for p in ps]==[(5.0,105.0,0.0),(5.0,-5.0,0.0)], ps)
+r=full(d2=False,rect=False); choose('skill',lget(r64(A+0x260))[0]); r=sfo('hhsx5'); r=sfo('hhsx6'); ps=ev(r,'pos')
+check('非 RectTransform → 默认行距 150', [p[2] for p in ps]==[(5.0,125.0,0.0),(5.0,-25.0,0.0)], ps)
 sys.exit(0 if ok else 1)
