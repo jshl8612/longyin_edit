@@ -19,17 +19,24 @@ def run(lists,force,skill=77,entry='book'):
     top=[HEAP+0x1000]
     def alloc(n): a=top[0]; top[0]+=(n+15)&~15; return a
     w=lambda a,v: mu.mem_write(a,struct.pack('<Q',v)); w32=lambda a,v: mu.mem_write(a,struct.pack('<i',v))
-    wobj=alloc(0x40); world=alloc(16); hero=alloc(0x300); w(wobj+0x20,world)
-    def mklist(items):
+    wobj=alloc(0x40); world=alloc(0x300); hero=alloc(0x300); w(wobj+0x20,world)
+    def mkL(items):      # List<ItemData>
         if items is None: return 0
-        il=alloc(0x40); L=alloc(0x20); arr=alloc(0x20+8*len(items))
-        w(il+0x28,L); w(L+0x10,arr); w32(L+0x18,len(items)); w32(arr+0x18,len(items))
+        L=alloc(0x20); arr=alloc(0x20+8*len(items))
+        w(L+0x10,arr); w32(L+0x18,len(items)); w32(arr+0x18,len(items))
         for k,(typ,sk,lv) in enumerate(items):
+            if typ is None: continue   # 空格子
             it=alloc(0x80); bd=alloc(0x20); w32(it+0x14,typ); w32(it+0x40,lv); w(it+0x70,bd); w32(bd+0x10,sk); w(arr+0x20+8*k,it)
-        return il
+        return L
+    def mklist(items):   # ItemListData
+        if items is None: return 0
+        il=alloc(0x40); w(il+0x28,mkL(items)); return il
+    # lists：背包、仓库、宗门仓库、藏经阁、个人展厅、门派展厅、星辰阁
+    lists=list(lists)+[None]*(7-len(lists))
     w(hero+0x220,mklist(lists[0])); w(hero+0x228,mklist(lists[1]))
+    w(world+0x160,mkL(lists[4])); w(world+0x218,mklist(lists[6]))
     fo=0
-    if force: fo=alloc(0x100); w(fo+0xa0,mklist(lists[2])); w(fo+0xb8,mklist(lists[3]))
+    if force: fo=alloc(0x200); w(fo+0xa0,mklist(lists[2])); w(fo+0xb8,mklist(lists[3])); w(fo+0x150,mkL(lists[5]))
     qd=alloc(0x40)
     strs={}; out=[]
     def mk(s): a=alloc(16); strs[a]=s; return a
@@ -80,6 +87,10 @@ cases=[
  ('全有',                 [[B(5),B(5),B(1)],[B(4)],[B(3)],[B(0),B(2)]],True, ['背包：<红>2红<绿>1绿\n仓库：<黄>1黄\n宗门仓库：<紫>1紫\n藏经阁：<蓝>1蓝<白>1白']),
  ('仓库 / 藏经阁为空指针',   [[B(2)],None,[B(3)],None],True, ['背包：<蓝>1蓝\n宗门仓库：<紫>1紫']),
  ('只有宗门仓库',           [[],[],[B(4),B(4,1)],[]],True, ['宗门仓库：<黄>1黄']),
+ ('七处都有（展厅有空格子）', [[B(5)],[B(4)],[B(3)],[B(2)],[B(1),(None,0,0),B(1)],[(None,0,0),B(0)],[B(5),B(5)]],True,
+   ['背包：<红>1红\n仓库：<黄>1黄\n个人展厅：<绿>2绿\n宗门仓库：<紫>1紫\n藏经阁：<蓝>1蓝\n门派展厅：<白>1白\n星辰阁：<红>2红']),
+ ('只有星辰阁和个人展厅，无门派', [[],[],None,None,[B(2)],None,[B(4)]],False, ['个人展厅：<蓝>1蓝\n星辰阁：<黄>1黄']),
+ ('展厅里别的武学不算',       [[],[],[],[],[B(5,9)],[B(5,9)],[]],True, ['背包：无']),
 ]
 ok=True
 for entry in ('book','skill'):

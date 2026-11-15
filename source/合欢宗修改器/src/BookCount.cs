@@ -1,5 +1,6 @@
 // 秘籍持有数量提示：鼠标放在秘籍或武功上时，在说明框最后再加一个框，显示同一门武学秘籍的数量（按品质颜色）：
-//   背包、仓库、宗门仓库、藏经阁（门派取主角所属门派），数量为 0 的行不显示；全都没有时显示「背包：无」。
+//   背包、仓库、个人展厅（私宅）、宗门仓库、藏经阁、门派展厅（门派取主角所属门派）、星辰阁（大隐阁特殊建筑星辰楼），
+//   数量为 0 的行不显示；全都没有时显示「背包：无」。
 // 做法：GameAssembly.dll 末尾新增一个代码节 .hhbook，放入 BookCountCave 的机器码；
 //       把 QuickDetail.ShowBookQuickDetail / ShowSkillQuickDetail 尾声的第一条指令（movaps xmm6,[rsp+N]）
 //       换成 jmp 到新代码（入口 +0 / +5），执行完再跳回。
@@ -116,6 +117,10 @@ namespace LongYinMod
             Require(dll, pe.VaToOff(va("PlotController", "OpenSelfStorage", new string[0])), 0x200, new byte[] { 0x28, 0x02, 0x00, 0x00 }, "HeroData.selfStorage(+228h)");
             Require(dll, pe.VaToOff(va("PlotController", "OpenOtherForceStorage", new[] { "maxItemLv" })), 0x400, new byte[] { 0x48, 0x8B, 0x98, 0xA0, 0x00, 0x00, 0x00 }, "ForceData.forceStorage(+A0h)");
             Require(dll, pe.VaToOff(va("ForceData", "BookStorageFindSkill", new[] { "_skillID" })), 0x100, new byte[] { 0x48, 0x8B, 0x86, 0xB8, 0x00, 0x00, 0x00 }, "ForceData.bookStorage(+B8h)");
+            long sr = pe.VaToOff(va("ShowRoomController", "ShowShowRoomUI", new[] { "_showRoomType", "_targetForce" }));
+            Require(dll, sr, 0x180, new byte[] { 0x48, 0x8B, 0x92, 0x50, 0x01, 0x00, 0x00 }, "ForceData.showRoomItems(+150h)");
+            Require(dll, sr, 0x180, new byte[] { 0x48, 0x8B, 0x92, 0x60, 0x01, 0x00, 0x00 }, "WorldData.showRoomItems(+160h)");
+            Require(dll, pe.VaToOff(va("SpeBookStorageController", "RefreshUI", new string[0])), 0x200, new byte[] { 0x48, 0x8B, 0x88, 0x18, 0x02, 0x00, 0x00 }, "WorldData.speBookStorage(+218h)");
             Require(dll, pe.VaToOff(t.Ext["GetForce"]), 0x40, new byte[] { 0x8B, 0x83, 0x84, 0x00, 0x00, 0x00 }, "HeroData.GetForce");
             return t;
         }

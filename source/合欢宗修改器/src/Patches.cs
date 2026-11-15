@@ -671,7 +671,7 @@ namespace LongYinMod
             plan.Features.Add(new Feature { Key = FCustom, Title = "自创武学每品级" + MaxCustomSkills + "门", Files = new[] { nDll },
                 Desc = "原版每个品级只能自创 1 门", Installed = csOn(dll.Current) });
             plan.Features.Add(new Feature { Key = FBook, Title = "秘籍持有数量提示", Files = new[] { nDll },
-                Desc = "悬停秘籍时多一个框，显示背包 / 仓库 / 宗门仓库 / 藏经阁里的数量", Installed = bookOn(dll.Current) });
+                Desc = "悬停秘籍或武功时多一个框，显示背包 / 仓库 / 展厅 / 宗门仓库 / 藏经阁 / 星辰阁里的数量", Installed = bookOn(dll.Current) });
             plan.Features.Add(new Feature { Key = FRead, Title = "首次研读也可跳过", Files = new[] { nDll },
                 Desc = "没研读过的武学当作研读过：跳过得按武学等级的默认经验（400/900/1500/2100/2600/3100）", Installed = readOn(dll.Current) });
             plan.Features.Add(new Feature { Key = FAuct, Title = "拍卖自动出价", Files = new[] { nDll },
