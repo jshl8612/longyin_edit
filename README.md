@@ -6,7 +6,7 @@
 
 ## 成品（release）
 
-当前版本 **0.3.0**。下载：仓库右侧 Releases（或本目录 `release\`）。
+当前版本 **0.3.0**。下载：仓库右侧 Releases（或本目录 `release\`）。各版本改动见 `CHANGELOG.md`。
 
 | 文件 | 用途 |
 |---|---|
@@ -19,6 +19,7 @@
 
 ```
 README.md                    本文件
+CHANGELOG.md                 版本改动（发布说明）
 docs\
   01_合欢宗修改器_使用说明.md
   02_存档修改器_使用说明.md

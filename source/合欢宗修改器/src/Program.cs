@@ -13,7 +13,7 @@ namespace LongYinMod
 {
     static class Program
     {
-        public const string AppVersion = "0.3.0";   // 发布版本（GitHub Releases 标签 v0.3.0）
+        public const string AppVersion = "0.3.0";   // 发布版本（GitHub Releases 标签 0.3.0）
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         static extern bool SetProcessDPIAware();
 
