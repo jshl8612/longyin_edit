@@ -9,7 +9,7 @@
 //   几条经验条由新代码上下排开（面板本身不排列）。
 //   武学说明的「修炼需求」原来只算武学主人，GetSkillDescribe 里那个 call 改为调用新代码 +15：
 //   双修选武学面板打开时，第一位的武学列出主角、第一位、第二位各自的需求（含当前等级）。
-//   经验条名字：SkillExpShowPrefab.Init 里取武学名的 call 改为调用新代码 +20：双修的几条显示「人物名　加成±P%」。
+//   经验条名字：SkillExpShowPrefab.Init 里取武学名的 call 改为调用新代码 +20：双修的几条显示「人物名 ±P%」。
 using System;
 using System.Collections.Generic;
 

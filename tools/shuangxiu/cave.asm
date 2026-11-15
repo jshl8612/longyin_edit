@@ -900,7 +900,7 @@ h6:                                 ; 进度结束：加经验（经验条面板
 
 ; rcx = 人物：找到该内功，在经验条面板里加一条（经验由面板动画按此人的加成加上）。
 ; 面板标题只有一个（最后一次调用的为准）：统一为「双修完成：武学　各得实战经验 N」；
-; 各条上的名字在 name_thunk 里换成「人物名　加成±P%」。
+; 各条上的名字在 name_thunk 里换成「人物名 ±P%」。
 show_exp:
     push rbx
     push rsi
@@ -974,7 +974,7 @@ show_exp:
     ret
 
 ; 经验条初始化（SkillExpShowPrefab.Init）里取名字的 call KungfuSkillLvData.Name 改为 call 这里（入口 +20）：
-; 是双修刚加的那几条（武学在 G_SKL 里）→ 名字换成「人物名　加成±P%」（P = 此人实战经验倍率 − 1），用过即清；否则照原样。
+; 是双修刚加的那几条（武学在 G_SKL 里）→ 名字换成「人物名 ±P%」（P = 此人实战经验倍率 − 1），用过即清；否则照原样。
 name_thunk:                         ; rcx = 武学, dl = colored, r8 = MethodInfo
     push rbx
     push rsi
@@ -1324,7 +1324,7 @@ S_PCTFMT: db "+0;-0;0", 0
 S_RECT:   db "RectTransform", 0
 S_TDONE:  db "双修完成：", 0
 S_TGET:   db "　各得实战经验 ", 0
-S_RATEL:  db "　加成", 0
+S_RATEL:  db " ", 0                 ; 名字后面紧跟加成：右边有等级标记，要短
 S_PCT:    db "%", 0
 S_LVL:    db "（", 0
 S_LVR:    db "级）", 0
