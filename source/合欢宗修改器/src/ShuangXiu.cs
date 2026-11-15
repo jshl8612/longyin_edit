@@ -9,7 +9,7 @@
 //   几条经验条由新代码上下排开（面板本身不排列）。
 //   武学说明的「修炼需求」原来只算武学主人，GetSkillDescribe 里那个 call 改为调用新代码 +15：
 //   双修选武学面板打开时，第一位的武学列出主角、第一位、第二位各自的需求（含当前等级）。
-//   经验条名字：SkillExpShowPrefab.Init 里取武学名的 call 改为调用新代码 +20：双修的几条显示「人物名 ±P%」。
+//   经验条名字：SkillExpShowPrefab.Init 里取武学名的 call 改为调用新代码 +20：双修的几条名字处显示人物名，并复制 Name 文字挂在框右边显示「加成±P%」。
 using System;
 using System.Collections.Generic;
 
@@ -213,6 +213,20 @@ namespace LongYinMod
                 if (dll[q] == 0xE8 && CallTarget(pe, dll, q) == t.Ext["SkName"]) { nmAt = q; nmHits++; }
             if (nmHits != 1 || Bin.IndexOf(dll, new byte[] { 0x48, 0x8B, 0x4B, 0x18 }, nmAt - 0x18, nmAt) < 0) throw bad("经验条初始化里的武学名");
             t.NameCallVa = pe.OffToVa(nmAt);
+            // 同处取 Name 文字组件：mov rdx,[rip+槽] ; mov rcx,rax ; call Component.GetComponent<T> ; …… 之后 SetText(该组件, 名字)
+            int tc2 = -1, tcHits = 0;
+            var tp = Pat("48 8B 15 ?? ?? ?? ?? 48 8B C8 E8");
+            for (int q = Bin.IndexOfPattern(dll, tp, nmAt - 0x30, nmAt); q >= 0; q = Bin.IndexOfPattern(dll, tp, q + 1, nmAt)) { tc2 = q; tcHits++; }
+            if (tcHits != 1) throw bad("经验条初始化里的文字组件");
+            t.Ext["SlotText"] = RipTarget(pe, dll, tc2, 7);
+            t.Ext["CGetComp"] = CallTarget(pe, dll, tc2 + 10);
+            t.Ext["SetText"] = va("LTLocalization", "SetText", new[] { "targetText", "targetValue" });
+            bool setOk = false;
+            for (int z = nmAt + 5; z < nmAt + 0x40; z++) if (dll[z] == 0xE8 && CallTarget(pe, dll, z) == t.Ext["SetText"]) { setOk = true; break; }
+            if (!setOk) throw bad("经验条初始化里写名字");
+            t.Ext["Find"] = vaCore("Transform", "Find", new[] { "n" });
+            t.Ext["CGetGo"] = vaCore("Component", "get_gameObject", none);
+            t.Ext["Inst"] = vaCore("Object", "Instantiate", new[] { "original", "parent", "instantiateInWorldSpace" });
             // 研读天数 = floor(武学等级 × 0.5) + 1：movd xmm0,[rax+34h] ; cvtdq2ps ; mulss ; FloorToInt ; inc eax
             if (Require0(dll, pe.VaToOff(va("BookData", "ReadDayCost", none)), 0x100, new byte[] { 0x66, 0x0F, 0x6E, 0x40, 0x34, 0x33, 0xD2, 0x0F, 0x5B, 0xC0 }) < 0) throw bad("研读天数");
 

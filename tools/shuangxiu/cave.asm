@@ -81,6 +81,12 @@ EXT X_GETLPOS,     53  ; Transform.get_localPosition()（rcx = 返回缓冲）
 EXT X_SETLPOS,     54  ; Transform.set_localPosition(value)（rdx = &value）
 EXT X_NEEDS,       55  ; AttriNumData.GetSkillNeedsDescribe(targetHero)
 EXT X_ACTIVE,      56  ; GameObject.get_activeSelf()
+EXT X_FIND,        57  ; Transform.Find(n)
+EXT X_CGETGO,      58  ; Component.get_gameObject()
+EXT X_INST,        59  ; Object.Instantiate(original,parent,instantiateInWorldSpace)
+EXT X_CGETCOMP,    60  ; Component.GetComponent<T>()（共享代码）
+EXT X_SETTEXT,     61  ; LTLocalization.SetText(targetText,targetValue)
+EXT X_SLOTTEXT,    62  ; SkillExpShowPrefab.Init 里取 Name 文字组件的 MethodInfo 槽
 
 %define H_ID       0x58   ; HeroData.heroID
 %define H_FEMALE   0x80   ; HeroData.isFemale
@@ -851,6 +857,7 @@ h6:                                 ; 进度结束：加经验（经验条面板
     mov [G_SKL], rax
     mov [G_SKL + 8], rax
     mov [G_SKL + 16], rax
+    mov [G_LBL], eax
     xor ecx, ecx
     call X_WKINST
     test rax, rax
@@ -964,6 +971,13 @@ show_exp:
     mov ecx, [G_N]
     lea rdx, [G_OBJ]
     mov [rdx + rcx * 8], rax
+    mov rcx, rax                    ; 框右边加一个「加成±P%」文字
+    mov rdx, rbx
+    mov r8, rsi
+    call label_rate
+    mov ecx, [G_N]
+    lea rdx, [G_LBL]
+    mov [rdx + rcx], al
     inc dword [G_N]
 .r: add rsp, 0x40
     pop r13
@@ -997,6 +1011,7 @@ name_thunk:                         ; rcx = 武学, dl = colored, r8 = MethodInf
     jmp .f
 .hit:
     mov qword [rax + rcx * 8], 0
+    mov r13d, ecx                   ; 第几条
     mov rcx, rbx
     xor edx, edx
     call X_BELONG
@@ -1008,8 +1023,42 @@ name_thunk:                         ; rcx = 武学, dl = colored, r8 = MethodInf
     xor r8d, r8d
     call X_HERONAME
     mov r12, rax
-    mov rcx, rdi
+    mov rsi, rax                    ; 框右边已有加成文字 → 只写名字
+    lea rax, [G_LBL]
+    cmp byte [rax + r13], 0
+    jne .ret
+    mov rcx, rdi                    ; 否则名字后面跟加成
     mov rdx, rbx
+    call rate_str
+    mov r13, rax
+    lea rcx, [S_RATEL]
+    call X_STRNEW
+    mov rcx, r12
+    mov rdx, rax
+    xor r8d, r8d
+    call X_CONCAT2
+    mov rcx, rax
+    mov rdx, r13
+    xor r8d, r8d
+    call X_CONCAT2
+    mov rsi, rax
+.ret:
+    mov rax, rsi
+    add rsp, 0x30
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; rcx = 人物, rdx = 武学 → "±P%"（P = 此人实战经验倍率 − 1，取整）
+rate_str:
+    push rbx
+    push rsi
+    sub rsp, 0x38
+    mov rbx, rcx
+    mov rsi, rdx
     xor r8d, r8d
     call X_FIGHTRATE
     subss xmm0, [F_ONE]
@@ -1021,22 +1070,144 @@ name_thunk:                         ; rcx = 武学, dl = colored, r8 = MethodInf
     mov rdx, rax
     xor r8d, r8d
     call X_F2S
-    mov r13, rax                    ; ±P
-    lea rcx, [S_RATEL]
-    call X_STRNEW
-    mov [rsp + 0x28], rax
+    mov [rsp + 0x30], rax
     lea rcx, [S_PCT]
     call X_STRNEW
+    mov rcx, [rsp + 0x30]
+    mov rdx, rax
+    xor r8d, r8d
+    call X_CONCAT2
+    add rsp, 0x38
+    pop rsi
+    pop rbx
+    ret
+
+; rcx = 对象 → eax 非 0 = 它的类是 RectTransform
+is_rect:
+    xor eax, eax
+    test rcx, rcx
+    jz .r
+    mov rcx, [rcx]
+    mov rcx, [rcx + 0x10]           ; Il2CppClass.name
+    lea rdx, [S_RECT]
+.c: mov r8b, [rcx]
+    cmp r8b, [rdx]
+    jne .r
+    test r8b, r8b
+    jz .y
+    inc rcx
+    inc rdx
+    jmp .c
+.y: mov eax, 1
+.r: ret
+
+; rcx = 经验条 GameObject, rdx = 人物, r8 = 武学 → eax = 1 已在框右边加上「加成±P%」
+; 做法：复制条目里的 "Name" 文字（同字体、同大小），挂在条目下，左边对齐到条目框右边 + F_LGAP，纵向同 Name；
+; 条目或 Name 不是 RectTransform 就不做（返回 0，名字处照旧写加成）。
+label_rate:
+    push rbx
+    push rsi
+    push rdi
+    push r12
+    push r13
+    push r14
+    push r15
+    sub rsp, 0x60
+    mov rbx, rcx
+    mov r14, rdx
+    mov r15, r8
+    xor edi, edi
+    test rbx, rbx
+    jz .r
+    mov rcx, rbx
+    xor edx, edx
+    call X_GETTRANS
+    test rax, rax
+    jz .r
+    mov rsi, rax                    ; 条目 Transform
+    mov rcx, rax
+    call is_rect
+    test eax, eax
+    jz .r
+    lea rcx, [S_NAMEOBJ]
+    call X_STRNEW
+    mov rcx, rsi
+    mov rdx, rax
+    xor r8d, r8d
+    call X_FIND
+    test rax, rax
+    jz .r
+    mov r12, rax                    ; Name 的 Transform
+    mov rcx, rax
+    call is_rect
+    test eax, eax
+    jz .r
+    lea rcx, [rsp + 0x30]
+    mov rdx, rsi
+    xor r8d, r8d
+    call X_GETRECT                  ; 条目 rect：x y w h
+    lea rcx, [rsp + 0x40]
+    mov rdx, r12
+    xor r8d, r8d
+    call X_GETRECT                  ; Name rect
+    lea rcx, [rsp + 0x50]
+    mov rdx, r12
+    xor r8d, r8d
+    call X_GETLPOS                  ; Name 位置
+    movss xmm0, [rsp + 0x30]
+    addss xmm0, [rsp + 0x38]
+    addss xmm0, [F_LGAP]
+    subss xmm0, [rsp + 0x40]
+    movss [rsp + 0x50], xmm0        ; 新文字左边 = 条目右边 + 间距
     mov rcx, r12
-    mov rdx, [rsp + 0x28]
-    mov r8, r13
-    mov r9, rax
-    mov qword [rsp + 0x20], 0
-    call X_CONCAT4
-    mov rsi, rax
-.ret:
-    mov rax, rsi
-    add rsp, 0x30
+    xor edx, edx
+    call X_CGETGO
+    test rax, rax
+    jz .r
+    mov rcx, rax
+    mov rdx, rsi
+    xor r8d, r8d                    ; instantiateInWorldSpace = false
+    xor r9d, r9d
+    call X_INST
+    test rax, rax
+    jz .r
+    mov rcx, rax
+    xor edx, edx
+    call X_GETTRANS
+    test rax, rax
+    jz .r
+    mov r13, rax                    ; 新文字 Transform
+    mov rcx, rax
+    lea rdx, [rsp + 0x50]
+    xor r8d, r8d
+    call X_SETLPOS
+    lea rcx, [rel $$ + X_SLOTTEXT]
+    call X_INITMD
+    mov rcx, r13
+    mov rdx, [rel $$ + X_SLOTTEXT]
+    call X_CGETCOMP                 ; 同 Init 取 Name 文字组件的方式
+    test rax, rax
+    jz .r
+    mov r12, rax
+    mov rcx, r14
+    mov rdx, r15
+    call rate_str
+    mov r13, rax
+    lea rcx, [S_RATEL2]
+    call X_STRNEW
+    mov rcx, rax
+    mov rdx, r13
+    xor r8d, r8d
+    call X_CONCAT2
+    mov rcx, r12
+    mov rdx, rax
+    xor r8d, r8d
+    call X_SETTEXT
+    mov edi, 1
+.r: mov eax, edi
+    add rsp, 0x60
+    pop r15
+    pop r14
     pop r13
     pop r12
     pop rdi
@@ -1324,7 +1495,9 @@ S_PCTFMT: db "+0;-0;0", 0
 S_RECT:   db "RectTransform", 0
 S_TDONE:  db "双修完成：", 0
 S_TGET:   db "　各得实战经验 ", 0
-S_RATEL:  db " ", 0                 ; 名字后面紧跟加成：右边有等级标记，要短
+S_RATEL:  db " ", 0                 ; 名字后面紧跟加成（取不到位置时）：右边有等级标记，要短
+S_RATEL2: db "加成", 0
+S_NAMEOBJ: db "Name", 0
 S_PCT:    db "%", 0
 S_LVL:    db "（", 0
 S_LVR:    db "级）", 0
@@ -1337,7 +1510,8 @@ F_HALF:   dd 0.5
 F_GAP:    dd 10.0
 F_MINH:   dd 60.0
 F_MAXH:   dd 400.0
-F_DEFH:   dd 150.0                  ; 取不到高度时的行距
+F_DEFH:   dd 150.0
+F_LGAP:   dd 50.0                   ; 框右边到加成文字的距离（中间留给升级的绿色箭头）                  ; 取不到高度时的行距
 ; 选项（plot 按顺序连续读取）
 C_MORE:   db "再唤一位;StudyFightOther;hhsx2", 0
           db "就我们二人;StudyFightOther;hhsx3", 0
@@ -1358,6 +1532,8 @@ G_NSID:   dd 0                      ; 修炼需求：被说明武学的 skillID
 G_SEL:    db 0, 0, 0, 0             ; 双修武学面板打开中
 align 8
 G_OBJ:    dq 0, 0, 0                ; 经验条 GameObject
+G_LBL:    db 0, 0, 0, 0             ; 该条框右边已有加成文字
+align 8
 G_SKL:    dq 0, 0, 0                ; 经验条对应的武学（等 Init 时换名字）
 G_LV:     dd 0                      ; 它的武学等级（0~5）
 FL:       times 0x20 db 0           ; 假 List：+10h 数组，+18h 个数（ShowChoosePanel 只读这两项，并立即复制）

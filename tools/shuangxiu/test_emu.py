@@ -53,7 +53,7 @@ def iget(l): n=r32(l+0x18); arr=r64(l+0x10); return [r32(arr+0x20+4*k) for k in 
 world=alloc(0x40); wobj=alloc(0x40); w64(wobj+0x20,world)
 force=alloc(0x40); pc=alloc(0x100); pcgo=alloc(0x10); cc=alloc(0x100); gc=alloc(0x10); bu=alloc(0x10)
 CORLIB=0x3333000; I32K=0x3334000
-wk=alloc(0x80); spe=alloc(0x80); GO_T={}; TPOS={}; ATTRI=alloc(0x40); PANEL=alloc(0x10)
+wk=alloc(0x80); spe=alloc(0x80); GO_T={}; TPOS={}; NAMET={}; RECT={}; T_GO={}; CLONE={}; ATTRI=alloc(0x40); PANEL=alloc(0x10)
 def cname(n): a=alloc(0x20); mu.mem_write(a,n.encode()+b'\0'); k=alloc(0x40); w64(k+0x10,a); return k
 TRK={True:cname('RectTransform'),False:cname('Transform')}
 RATE={1:1.35,11:1.2,12:1.0}
@@ -112,9 +112,17 @@ def hook(mu,addr,size,ud):
     elif n=='X_SHOWEXP':
         assert rcx==spe and r9&0xffffffff==1 and arg(5)==0
         go=alloc(0x20); tr=alloc(0x20); w64(tr,TRK[state.get('rect',True)]); GO_T[go]=tr; TPOS[tr]=(5.0,50.0,0.0); w64(spe+0xa8,go)
+        nt=alloc(0x20); w64(nt,TRK[state.get('rect',True)]); NAMET[tr]=nt; TPOS[nt]=(20.0,30.0,0.0); RECT[tr]=(-150,-70,300,140); RECT[nt]=(-100,-20,200,40); T_GO[nt]=alloc(0x20)
         state['log'].append(('show',r32(SK[rdx]['owner']+0x58),SK[rdx]['id'],f32(g(UC_X86_REG_XMM2)),STRS[arg(4)]))
     elif n=='X_GETTRANS': assert rdx==0; r=GO_T[rcx]
-    elif n=='X_GETRECT': assert r8==0 and r64(rdx)==TRK[True]; mu.mem_write(rcx,struct.pack('<4f',-50,-50,300,100)); r=rcx
+    elif n=='X_GETRECT': assert r8==0 and r64(rdx)==TRK[True]; mu.mem_write(rcx,struct.pack('<4f',*RECT.get(rdx,(-150,-50,300,100)))); r=rcx
+    elif n=='X_FIND': assert STRS[rdx]=='Name' and r8==0; r=NAMET.get(rcx,0)
+    elif n=='X_CGETGO': assert rdx==0; r=T_GO[rcx]
+    elif n=='X_INST':
+        assert r8&0xff==0 and r9==0 and rcx in T_GO.values()
+        go=alloc(0x20); tr=alloc(0x20); w64(tr,TRK[True]); GO_T[go]=tr; CLONE[tr]=rdx; r=go
+    elif n=='X_CGETCOMP': assert rdx==RESOLVED['X_SLOTTEXT'] and rcx in CLONE; r=rcx+1
+    elif n=='X_SETTEXT': assert r8==0; state['log'].append(('label',CLONE[rcx-1],TPOS.get(rcx-1),STRS[rdx]))
     elif n=='X_GETLPOS': assert r8==0; mu.mem_write(rcx,struct.pack('<3f',*TPOS[rdx])); r=rcx
     elif n=='X_SETLPOS': assert r8==0; v=struct.unpack('<3f',mu.mem_read(rdx,12)); TPOS[rcx]=v; state['log'].append(('pos',rcx,v))
     elif n=='X_NEEDS': assert rcx==ATTRI and r8==0; r=mstr('需求%d'%r32(rdx+0x58))
@@ -219,7 +227,7 @@ w8(wk+0x60,1); r=sfo('hhsx6'); sh=ev(r,'show')
 def nm(sk):
     r=call(20,0,sk); return r['ok'], STRS.get(r['rax'])
 Ask_=lget(r64(A+0x260))[0]
-check('经验条名字：主角 / 第一位 / 第二位 → 人物名 ±P%', [nm(P_NG),nm(Ask_),nm(lget(r64(B+0x260))[0])]==[(True,'人1 +35%'),(True,'人11 +20%'),(True,'人12 0%')])
+check('经验条名字：框右边已有加成 → 只写人物名', [nm(P_NG),nm(Ask_),nm(lget(r64(B+0x260))[0])]==[(True,'人1'),(True,'人11'),(True,'人12')])
 check('经验条名字：用过即恢复原样', nm(Ask_)==(True,'玉女心经'))
 check('经验条名字：别的武学照原样', nm(P_EX)==(True,'外功'))
 check('进度结束 → 经验条面板三条（主角、第一位、第二位），各 2100，统一标题', r['ok'] and sh==[('show',1,100,2100.0,'双修完成：玉女心经　各得实战经验 2100'),('show',11,100,2100.0,'双修完成：玉女心经　各得实战经验 2100'),('show',12,100,2100.0,'双修完成：玉女心经　各得实战经验 2100')], sh)
@@ -307,11 +315,15 @@ w64(cc+0x60,mstr('hhsx1')); nd=call(15,A,ATTRI,rbx=lget(r64(A+0x260))[0]); check
 choose('skill',lget(r64(A+0x260))[0]); r=sfo('hhsx5')
 nd=call(15,A,ATTRI,rbx=lget(r64(A+0x260))[0]); check('选好武学后 → 照原样', STRS.get(nd['rax'])=='需求11')
 w8(wk+0x60,1); r=sfo('hhsx6'); ps=ev(r,'pos')
-check('结束 → 三条经验条上下排开（行距 110，主角在上）', r['ok'] and [p[2] for p in ps]==[(5.0,160.0,0.0),(5.0,50.0,0.0),(5.0,-60.0,0.0)], ps)
+lb=ev(r,'label')
+check('每条框右边加「加成±P%」（左边对齐框右 +50，纵向同名字）', [(x[2],x[3]) for x in lb]==[((300.0,30.0,0.0),'加成+35%'),((300.0,30.0,0.0),'加成+20%'),((300.0,30.0,0.0),'加成0%')], lb)
+ps=[p for p in ps if p[1] in GO_T.values() and p[1] not in CLONE]
+check('结束 → 三条经验条上下排开（行距 150，主角在上）', r['ok'] and [p[2] for p in ps]==[(5.0,200.0,0.0),(5.0,50.0,0.0),(5.0,-100.0,0.0)], ps)
 r=full(d2=False); w64(cc+0x60,mstr('hhsx5'))
 nd=call(15,A,ATTRI,rbx=lget(r64(A+0x260))[0]); check('只有一位 → 修炼需求列出主角、她', STRS.get(nd['rax'])=='人1（10级）：需求1\n人11（7级）：需求11', STRS.get(nd['rax']))
 choose('skill',lget(r64(A+0x260))[0]); r=sfo('hhsx5'); r=sfo('hhsx6'); ps=ev(r,'pos')
-check('一位 → 两条（行距 110）', [p[2] for p in ps]==[(5.0,105.0,0.0),(5.0,-5.0,0.0)], ps)
+check('一位 → 两条（行距 150）', [p[2] for p in ps if p[1] not in CLONE]==[(5.0,125.0,0.0),(5.0,-25.0,0.0)], ps)
 r=full(d2=False,rect=False); choose('skill',lget(r64(A+0x260))[0]); r=sfo('hhsx5'); r=sfo('hhsx6'); ps=ev(r,'pos')
 check('非 RectTransform → 默认行距 150', [p[2] for p in ps]==[(5.0,125.0,0.0),(5.0,-25.0,0.0)], ps)
+check('非 RectTransform → 不加框外文字，名字处写「人物名 ±P%」', not ev(r,'label') and [nm(P_NG),nm(lget(r64(A+0x260))[0])]==[(True,'人1 +35%'),(True,'人11 +20%')], (ev(r,'label'),nm(P_NG)))
 sys.exit(0 if ok else 1)
