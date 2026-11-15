@@ -8,6 +8,7 @@
 ;    · 离开按钮下面没有 hhAutoStart 就复制开拍按钮做一个，放在离开按钮右边，文字「自动出价」；
 ;      每帧让它跟开拍按钮同时显示 / 隐藏；
 ;    · 出价按钮（playerAuctionUI/OfferButton）下面没有 hhAutoBid 就复制一个，放在右边；文字随开关显示「自动出价 / 停止自动」；
+;      只在竞价中（auctionStep == 2）显示——开拍前出价按钮也是激活的，只是被开拍按钮盖住；
 ;    · 复制的按钮宽度 ×1.6，文字设为不换行；
 ;    · 开关打开、正在竞价、主角参拍、还有时间、还是开拍时那一件、当前出价人不是主角（快进时也照样出价）：
 ;      下一口价 ≤ 背包钱数 → 以主角名义出价（与手动出价同一套 RefreshOfferMoney + StartCoroutine）；
@@ -227,6 +228,18 @@ ensure:
     test rdi, rdi
     jz .done
 .have:
+    ; 只在竞价中显示（开拍前出价按钮也在，只是被开拍按钮盖住）
+    mov rcx, rdi
+    xor edx, edx
+    call $$ + X_GETGO
+    test rax, rax
+    jz .done
+    mov rcx, rax
+    xor edx, edx
+    cmp dword [r12 + A_STEP], 2
+    sete dl
+    xor r8d, r8d
+    call $$ + X_SETACTIVE
     lea rdx, [s_auto]
     cmp byte [g_auto], 0
     je .lab
