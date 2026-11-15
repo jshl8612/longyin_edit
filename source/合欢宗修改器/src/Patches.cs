@@ -586,7 +586,7 @@ namespace LongYinMod
         }
 
         // ---------------- orchestration (independent, selectable features) ----------------
-        public const string FHff = "hff", FCustom = "custom", FBook = "book", FRead = "read", FAuct = "auct", FLib = "lib", FSx = "sx", FHhd = "hhd", FTag = "tag";
+        public const string FHff = "hff", FCustom = "custom", FBook = "book", FRead = "read", FAuct = "auct", FLib = "lib", FSx = "sx", FLover = "lover", FHhd = "hhd", FTag = "tag";
 
         public class FileState
         {
@@ -652,7 +652,8 @@ namespace LongYinMod
             Func<byte[], bool> auctOn = d => Safe(() => AutoBidPatched(d));
             Func<byte[], bool> libOn = d => Safe(() => LibKungfuPatched(d));
             Func<byte[], bool> sxOn = d => Safe(() => SxPatched(d));
-            var dll = LoadFile(G.Dll, d => hffOn(d) || csOn(d) || bookOn(d) || readOn(d) || auctOn(d) || libOn(d) || sxOn(d));
+            Func<byte[], bool> loverOn = d => Safe(() => LoverPatched(d, meta));
+            var dll = LoadFile(G.Dll, d => hffOn(d) || csOn(d) || bookOn(d) || readOn(d) || auctOn(d) || libOn(d) || sxOn(d) || loverOn(d));
             var res = LoadFile(G.Resources, d => HasBuilding(d) || HasTag(d));
             var ggm = LoadFile(G.Ggm, GgmPatched);
             ResolveAtlas(ggm.Pristine);
@@ -681,6 +682,8 @@ namespace LongYinMod
                 Desc = "本门（主角所在门派）的人：秘籍在本门藏经阁里的武学算本门武学，吃本门武学威力加成；其他门派不变", Installed = libOn(dll.Current) });
             plan.Features.Add(new Feature { Key = FSx, Title = "合欢殿双修", Files = new[] { nDll, nRes },
                 Desc = "合欢殿加「双修」：选本门女弟子（最多两位，在队伍或门派里，每人每月一次）和大家都会的内功，主角和弟子各得实战经验（按内功等级 400~3100）。需同时安装合欢殿", Installed = sxOn(dll.Current) });
+            plan.Features.Add(new Feature { Key = FLover, Title = "结缘上限无限", Files = new[] { nDll },
+                Desc = "去掉「情侣数量已达上限！」（原版最多 4 位），结缘不再受数量限制", Installed = loverOn(dll.Current) });
             plan.Features.Add(new Feature { Key = FHhd, Title = "合欢殿", Files = new[] { nRes, nGgm, nAtl },
                 Desc = "新建筑（借用金顶外观），自立门户后可建造", Installed = HasBuilding(res.Current) || GgmPatched(ggm.Current) || AtlasPatched(atl.Current) });
             plan.Features.Add(new Feature { Key = FTag, Title = "合欢宗主天赋", Files = new[] { nRes },
@@ -697,6 +700,7 @@ namespace LongYinMod
                 if (sel.Contains(FAuct)) d = PatchAutoBid(d, meta);
                 if (sel.Contains(FLib)) d = PatchLibKungfu(d, meta);
                 if (sel.Contains(FSx)) d = PatchSx(d, meta);
+                if (sel.Contains(FLover)) d = PatchLover(d, meta);
                 o[dll.Path] = d;
                 var r = res.Pristine;
                 if (sel.Contains(FHhd)) r = PatchBuilding(r, sel.Contains(FSx));
