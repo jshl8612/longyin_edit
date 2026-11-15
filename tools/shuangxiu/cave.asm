@@ -7,8 +7,11 @@
 ;   hhsx4 选好第二位：剧情（「开始双修 hhsx3 / 改日再说」）
 ;   hhsx3 开始双修：没有共同内功就提示；否则打开武学面板 —— 列第一位的武学，只看内功（类型 "0"），
 ;            筛选 28 = 剧情目标人物和主角也会（剧情目标人物临时设为第二位，没有第二位就是第一位）
-;   hhsx5 选好内功：主角和参与的弟子各得该内功的实战经验（按内功等级 400/900/1500/2100/2600/3100），
-;            弟子本月次数用掉，剧情显示结果（「如此甚好」结束并过一天）
+;   hhsx5 选好内功：关对话，开始「双修」进度（WorkingUIController，天数 = 内功等级 / 2 + 1，同研读秘籍），
+;            结束回调 hhsx6
+;   hhsx6 进度结束（中途取消则什么都不给）：主角和参与的弟子各在经验条面板（同研读秘籍后的面板）加一条，
+;            经验按内功等级 400/900/1500/2100/2600/3100，由面板动画按各人自己的实战经验加成加上；弟子本月次数用掉
+; 经验条面板原来固定给主角加（SkillExpShowPrefab.Update 里 主角.AddSkillFightExp），改为给武学的主人加（入口 +10）。
 ; 可双修的女弟子：本门（主角门派 GetOwnHeros），女性，没死、没坐牢，不是主角；
 ;   和主角在同一区域（门派里），或在主角队伍里；本月还没双修过。
 ; 每月一次：记在人物 playerInteractionTimeData.playerInteractTimeList 第 40 格（原版只有 30 种互动，
@@ -63,6 +66,15 @@ EXT X_SLOTLISTCTOR,38  ; List<string>..ctor 的 MethodInfo 槽
 EXT X_SLOTLISTADD, 39  ; List<string>.Add 的 MethodInfo 槽
 EXT X_SLOTPLOTK,   40  ; SinglePlotData 类的槽
 EXT X_SLOTINTADD,  41  ; List<int>.Add 的 MethodInfo 槽
+EXT X_BELONG,      42  ; KungfuSkillLvData.GetBelongHero()
+EXT X_HIDEINTERACT,43  ; PlotController.HideInteractUI()
+EXT X_WKINST,      44  ; WorkingUIController.get_Instance()
+EXT X_STARTWORK,   45  ; WorkingUIController.StartWorking(_workName,dayNum,callFuc,callFucParam,finishCallFuc,finishCallFucParam)
+EXT X_SPEINST,     46  ; SpeShowController.get_Instance()
+EXT X_SHOWEXP,     47  ; SpeShowController.ShowGetSkillExp(_targetSkill,_totalExp,_expType,showText)
+EXT X_HERONAME,    48  ; HeroData.HeroName(useSetName)
+EXT X_FIGHTRATE,   49  ; HeroData.GetFightExpRate(targetSkill)
+EXT X_F2S,         50  ; Single.ToString(format)（this = float*）
 
 %define H_ID       0x58   ; HeroData.heroID
 %define H_FEMALE   0x80   ; HeroData.isFemale
@@ -82,10 +94,12 @@ EXT X_SLOTINTADD,  41  ; List<int>.Add 的 MethodInfo 槽
 %define KF_TYPE    0x30   ; KungFuData.类别（0 = 内功）
 %define KF_LV      0x34   ; KungFuData.等级
 %define MAXN       1000   ; 选人面板最多列出的人数
+%define WK_FINISHED 0x60  ; WorkingUIController.workFinished（自然结束 1，中途取消 0）
 
 ; 入口表（C# 按偏移挂钩）
 entry_sms: jmp strict near sms_hook       ; +0  BuildingUIController.StudyMaxState(param)
 entry_sfo: jmp strict near sfo_hook       ; +5  PlotController.StudyFightOther(param)
+entry_exp: jmp strict near exp_thunk      ; +10 SkillExpShowPrefab.Update 里的 call AddSkillFightExp 改为 call 这里
 
 ; rdx = 参数字符串 → eax = "hhsxN" 的 N，不是则 -1；只改 rax、r10
 marker:
@@ -125,6 +139,8 @@ sfo_hook:
     je h4
     cmp eax, 5
     je h5
+    cmp eax, 6
+    je h6
     push rbx                        ; 原函数开头
     push rbp
     push r15
@@ -745,44 +761,16 @@ h3:                                 ; 开始双修：选内功
     pop rbx
     ret
 
-h5:                                 ; 选好内功：加经验
+h5:                                 ; 选好内功：记下武学，关对话，开始「双修」进度（按等级过几天）
     push rbx
-    push rsi
-    push rdi
-    push r12
-    push r13
-    push r14
-    sub rsp, 0x48
+    sub rsp, 0x40
     lea rcx, [rel $$ + X_SLOTSKILL]
     call chosen
     test rax, rax
     jz .r
     mov rbx, rax
-    xor ecx, ecx
-    call X_PCINST                   ; 剧情目标人物改回原来的
-    test rax, rax
-    jz .nopc
-    mov rcx, rax
-    lea rdx, [rax + PC_TARGET]
-    mov r8, [G_OLD]
-    call X_WB
-.nopc:
-    mov ecx, [G_D1]
-    call get_hero
-    test rax, rax
-    jz .r
-    mov rsi, rax
-    xor edi, edi
-    mov ecx, [G_D2]
-    test ecx, ecx
-    js .n2
-    call get_hero
-    mov rdi, rax
-.n2:
-    call get_player
-    test rax, rax
-    jz .r
-    mov r12, rax
+    mov eax, [rbx + SK_ID]
+    mov [G_SID], eax
     mov rcx, rbx
     xor edx, edx
     call X_DATABASE
@@ -795,90 +783,213 @@ h5:                                 ; 选好内功：加经验
 .p: cmp eax, 5
     jle .q
     mov eax, 5
-.q: lea rcx, [EXPTBL]
-    mov r13d, [rcx + rax * 4]
-    mov rcx, r12                    ; 主角
-    mov edx, [rbx + SK_ID]
-    xor r8d, r8d
-    call X_FINDSKILL
+.q: mov [G_LV], eax
+    xor ecx, ecx
+    call X_PCINST                   ; 剧情目标人物改回原来的，关对话
     test rax, rax
-    jz .np
-    mov r8, rax
-    mov rcx, r12
-    cvtsi2ss xmm1, r13d
-    mov r9d, 1
-    mov qword [rsp + 0x20], 0
-    call X_ADDEXP
-.np:
-    mov rcx, rsi                    ; 第一位（选中的就是她的武学）
-    cvtsi2ss xmm1, r13d
-    mov r8, rbx
-    xor r9d, r9d
-    mov qword [rsp + 0x20], 0
-    call X_ADDEXP
-    test rdi, rdi
-    jz .nd2
-    mov rcx, rdi                    ; 第二位
-    mov edx, [rbx + SK_ID]
-    xor r8d, r8d
-    call X_FINDSKILL
+    jz .r
+    mov rbx, rax
+    mov rcx, rax
+    lea rdx, [rax + PC_TARGET]
+    mov r8, [G_OLD]
+    call X_WB
+    mov rcx, rbx
+    xor edx, edx
+    call X_HIDEINTERACT
+    xor ecx, ecx
+    call X_WKINST
     test rax, rax
-    jz .nd2u
-    mov r8, rax
-    mov rcx, rdi
-    cvtsi2ss xmm1, r13d
-    xor r9d, r9d
-    mov qword [rsp + 0x20], 0
-    call X_ADDEXP
-.nd2u:
-    mov rcx, rdi
-    call slot_use
-.nd2:
-    mov rcx, rsi
-    call slot_use
-    mov dword [G_D1], -1            ; 这一轮结束
-    mov dword [G_D2], -1
-    lea rcx, [R_A]                  ; 结果文字：R_A + 武学名 + R_B + 经验 + R_C
+    jz .r
+    mov rbx, rax
+    lea rcx, [S_WORK]
+    call X_STRNEW
+    mov [rsp + 0x38], rax
+    lea rcx, [S_FUNC]
     call X_STRNEW
     mov [rsp + 0x30], rax
+    lea rcx, [M6]
+    call X_STRNEW
     mov rcx, rbx
-    mov dl, 1
+    mov rdx, [rsp + 0x38]           ; 名字「双修」
+    mov r8d, [G_LV]                 ; 天数 = 等级 / 2 + 1（同研读秘籍 BookData.ReadDayCost）
+    shr r8d, 1
+    inc r8d
+    xor r9d, r9d                    ; 每天回调：无
+    mov qword [rsp + 0x20], 0
+    mov r10, [rsp + 0x30]
+    mov [rsp + 0x28], r10           ; 结束回调 StudyFightOther("hhsx6")
+    mov [rsp + 0x30], rax
+    mov qword [rsp + 0x38], 0
+    call X_STARTWORK
+.r: add rsp, 0x40
+    pop rbx
+    ret
+
+h6:                                 ; 进度结束：加经验（经验条面板），弟子本月次数用掉
+    push rbx
+    push rsi
+    push rdi
+    push r12
+    sub rsp, 0x28
+    xor ecx, ecx
+    call X_WKINST
+    test rax, rax
+    jz .end
+    cmp byte [rax + WK_FINISHED], 0 ; 中途取消：什么都不给
+    je .end
+    cmp dword [G_D1], 0
+    jl .end
+    mov ecx, [G_D1]
+    call get_hero
+    mov rsi, rax
+    xor edi, edi
+    mov ecx, [G_D2]
+    test ecx, ecx
+    js .n2
+    call get_hero
+    mov rdi, rax
+.n2:
+    call get_player
+    test rax, rax
+    jz .end
+    mov rcx, rax
+    call show_exp                   ; 主角
+    test rsi, rsi
+    jz .d2
+    mov rcx, rsi
+    call show_exp
+    mov rcx, rsi
+    call slot_use
+.d2:
+    test rdi, rdi
+    jz .end
+    mov rcx, rdi
+    call show_exp
+    mov rcx, rdi
+    call slot_use
+.end:
+    mov dword [G_D1], -1
+    mov dword [G_D2], -1
+    add rsp, 0x28
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; rcx = 人物：找到该内功，在经验条面板里加一条（标题「名字：武学增加实战经验 N (+P%)」，经验由面板动画按此人的加成加上）
+show_exp:
+    push rbx
+    push rsi
+    push rdi
+    push r12
+    push r13
+    sub rsp, 0x40
+    mov rbx, rcx
+    mov edx, [G_SID]
+    xor r8d, r8d
+    call X_FINDSKILL
+    test rax, rax
+    jz .r
+    mov rsi, rax                    ; 此人的这门内功
+    mov eax, [G_LV]
+    lea rcx, [EXPTBL]
+    mov eax, [rcx + rax * 4]
+    mov [rsp + 0x30], eax           ; 经验（整数）
+    mov rcx, rbx
+    xor edx, edx
+    xor r8d, r8d
+    call X_HERONAME
+    mov rdi, rax
+    lea rcx, [S_COLON]
+    call X_STRNEW
+    mov r12, rax
+    mov rcx, rsi
+    xor edx, edx
     xor r8d, r8d
     call X_SKNAME
-    mov [rsp + 0x38], rax
-    lea rcx, [R_B]
+    mov r13, rax
+    lea rcx, [S_ADD]
     call X_STRNEW
-    mov r14, rax
-    mov [rsp + 0x40], r13d
-    lea rcx, [rsp + 0x40]
-    xor edx, edx
-    call X_I2S
-    mov rcx, [rsp + 0x30]
-    mov rdx, [rsp + 0x38]
-    mov r8, r14
+    mov rcx, rdi
+    mov rdx, r12
+    mov r8, r13
     mov r9, rax
     mov qword [rsp + 0x20], 0
     call X_CONCAT4
-    mov r14, rax
-    lea rcx, [R_C]
+    mov rdi, rax                    ; 名字：武学增加实战经验␣
+    lea rcx, [rsp + 0x30]
+    xor edx, edx
+    call X_I2S
+    mov r12, rax                    ; N
+    mov rcx, rbx
+    mov rdx, rsi
+    xor r8d, r8d
+    call X_FIGHTRATE                ; 此人的实战经验倍率
+    subss xmm0, [F_ONE]
+    mulss xmm0, [F_100]
+    movss [rsp + 0x34], xmm0
+    lea rcx, [S_PCTFMT]
     call X_STRNEW
-    mov rcx, r14
+    lea rcx, [rsp + 0x34]
+    mov rdx, rax
+    xor r8d, r8d
+    call X_F2S
+    mov r13, rax                    ; +P
+    lea rcx, [S_LP]
+    call X_STRNEW
+    mov rcx, rdi
+    mov rdx, r12
+    mov r8, rax
+    mov r9, r13
+    mov qword [rsp + 0x20], 0
+    call X_CONCAT4
+    mov rdi, rax
+    lea rcx, [S_RP]
+    call X_STRNEW
+    mov rcx, rdi
     mov rdx, rax
     xor r8d, r8d
     call X_CONCAT2
+    mov rdi, rax                    ; 标题
+    xor ecx, ecx
+    call X_SPEINST
+    test rax, rax
+    jz .r
     mov rcx, rax
     mov rdx, rsi
-    lea r8, [C_OK]
-    mov r9d, 1
-    call plot
-.r: add rsp, 0x48
-    pop r14
+    cvtsi2ss xmm2, dword [rsp + 0x30]
+    mov r9d, 1                      ; 实战经验
+    mov [rsp + 0x20], rdi
+    mov qword [rsp + 0x28], 0
+    call X_SHOWEXP
+.r: add rsp, 0x40
     pop r13
     pop r12
     pop rdi
     pop rsi
     pop rbx
     ret
+
+; 经验条面板（SkillExpShowPrefab.Update）里原来是 主角.AddSkillFightExp(…)：改为由武学的主人加，按主人的加成
+exp_thunk:                          ; rcx = 主角, xmm1 = 经验, r8 = 武学, r9 = showInfo, [rsp+28h] = MethodInfo
+    push rcx
+    sub rsp, 0x40
+    mov [rsp + 0x20], r8
+    mov [rsp + 0x28], r9
+    movss [rsp + 0x30], xmm1
+    mov rcx, r8
+    xor edx, edx
+    call X_BELONG
+    mov rcx, rax
+    test rcx, rcx
+    jnz .h
+    mov rcx, [rsp + 0x40]
+.h: mov r8, [rsp + 0x20]
+    mov r9, [rsp + 0x28]
+    movss xmm1, [rsp + 0x30]
+    add rsp, 0x48
+    jmp X_ADDEXP
 
     times 8 db 0xCC                 ; 代码结束标记（gen.py 用）
 
@@ -896,9 +1007,16 @@ P1:       db "能与#PlayerName#双修，是弟子的福分。", 10, "#PlayerNam
 P1B:      db "能与#PlayerName#双修，是弟子的福分。", 0
 P2:       db "既是#PlayerName#相召，弟子自当奉陪。", 0
 P3:       db "我们并无共同修习的内功，今日只怕无从双修了。", 0
-R_A:      db "一番真气交融、阴阳相济，", 0
-R_B:      db "的实战经验各增加了 ", 0
-R_C:      db " 点。", 0
+M6:       db "hhsx6", 0
+S_WORK:   db "双修", 0
+S_COLON:  db "：", 0
+S_ADD:    db "增加实战经验 ", 0
+S_LP:     db " (", 0
+S_RP:     db "%)", 0
+S_PCTFMT: db "+0;-0;0", 0
+align 4
+F_ONE:    dd 1.0
+F_100:    dd 100.0
 ; 选项（plot 按顺序连续读取）
 C_MORE:   db "再唤一位;StudyFightOther;hhsx2", 0
           db "就我们二人;StudyFightOther;hhsx3", 0
@@ -906,7 +1024,6 @@ C_MORE:   db "再唤一位;StudyFightOther;hhsx2", 0
 C_START:  db "开始双修;StudyFightOther;hhsx3", 0
           db "改日再说;HideInteractUI", 0
 C_GIVEUP: db "只好作罢;HideInteractUI", 0
-C_OK:     db "如此甚好;HideInteractUIOneDay", 0
 
 ; ---------- 变量（节是可读写的） ----------
 align 8
@@ -914,6 +1031,8 @@ G_OLD:    dq 0                      ; 改剧情目标人物前的值
 G_I32:    dq 0                      ; System.Int32 类
 G_D1:     dd -1                     ; 第一位 heroID
 G_D2:     dd -1                     ; 第二位 heroID（-1 = 无）
+G_SID:    dd 0                      ; 选中的内功 skillID
+G_LV:     dd 0                      ; 它的武学等级（0~5）
 FL:       times 0x20 db 0           ; 假 List：+10h 数组，+18h 个数（ShowChoosePanel 只读这两项，并立即复制）
 FL2:      times 0x20 db 0
 FA2:      times 0x30 db 0           ; 假数组：+20h 起是元素

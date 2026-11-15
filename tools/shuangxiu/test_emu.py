@@ -53,6 +53,7 @@ def iget(l): n=r32(l+0x18); arr=r64(l+0x10); return [r32(arr+0x20+4*k) for k in 
 world=alloc(0x40); wobj=alloc(0x40); w64(wobj+0x20,world)
 force=alloc(0x40); pc=alloc(0x100); pcgo=alloc(0x10); cc=alloc(0x100); gc=alloc(0x10); bu=alloc(0x10)
 CORLIB=0x3333000; I32K=0x3334000
+wk=alloc(0x80); spe=alloc(0x80); RATE={1:1.35,11:1.2,12:1.0}
 KF={}       # KungFuData 对象 -> (类型, 等级)
 SK={}       # KungfuSkillLvData -> (skillID, 名)
 HEROES={}
@@ -62,6 +63,7 @@ def hero(hid,female=True,area=5,inteam=False,leader=0,dead=False,prison=False,sk
     h=alloc(0x320); w32(h+0x58,hid); w8(h+0x80,int(female)); w8(h+0x61,int(dead)); w8(h+0xd1,int(prison))
     w32(h+0xc0,area); w8(h+0x2f0,int(inteam)); w32(h+0x2f4,leader)
     w64(h+0x260,mlist(list(skills)))
+    for sk in skills: SK[sk]['owner']=h
     if pit is not False:
         p=alloc(0x60); w64(p+0x10,ilist(pit if pit is not None else [1]*30)); w64(h+0x308,p)
     HEROES[hid]=h; return h
@@ -94,10 +96,24 @@ def hook(mu,addr,size,ud):
     elif n=='X_FINDSKILL':
         sid=rdx&0xffffffff; r=next((s for s in lget(r64(rcx+0x260)) if SK[s]['id']==sid),0)
     elif n=='X_DATABASE': r=SK[rcx]['kf']
-    elif n=='X_SKNAME': assert rdx&0xff==1; r=mstr('['+SK[rcx]['name']+']')
+    elif n=='X_SKNAME': assert rdx&0xff==0; r=mstr(SK[rcx]['name'])
     elif n=='X_ADDEXP':
-        assert arg(4)==0
-        state['log'].append(('exp',r32(rcx+0x58),f32(g(UC_X86_REG_XMM1)),SK[r8]['id'],r8,r9&0xff))
+        state['log'].append(('addexp',rcx,f32(g(UC_X86_REG_XMM1)),r8,r9,arg(4)))
+    elif n=='X_BELONG': assert rdx==0; r=SK[rcx].get('owner',0)
+    elif n=='X_HIDEINTERACT': assert rcx==pc; state['log'].append('hideinteract')
+    elif n=='X_WKINST': assert rcx==0; r=wk
+    elif n=='X_STARTWORK':
+        assert rcx==wk and r9==0 and arg(4)==0 and arg(7)==0
+        state['log'].append(('work',STRS[rdx],r8&0xffffffff,STRS[arg(5)],STRS[arg(6)]))
+    elif n=='X_SPEINST': assert rcx==0; r=spe
+    elif n=='X_SHOWEXP':
+        assert rcx==spe and r9&0xffffffff==1 and arg(5)==0
+        state['log'].append(('show',r32(SK[rdx]['owner']+0x58),SK[rdx]['id'],f32(g(UC_X86_REG_XMM2)),STRS[arg(4)]))
+    elif n=='X_HERONAME': assert rdx&0xff==0; r=mstr('人%d'%r32(rcx+0x58))
+    elif n=='X_FIGHTRATE':
+        assert SK[rdx]['owner']==rcx; mu.reg_write(UC_X86_REG_XMM0,struct.unpack('<I',struct.pack('<f',RATE[r32(rcx+0x58)]))[0])
+    elif n=='X_F2S':
+        assert STRS[rdx]=='+0;-0;0'; v=struct.unpack('<f',mu.mem_read(rcx,4))[0]; r=mstr(('+%d' if round(v)>0 else '%d')%round(v))
     elif n=='X_CCINST': assert rcx==0; r=cc
     elif n=='X_PCINST': assert rcx==0; r=pc
     elif n=='X_GCINST': assert rcx==0; r=gc
@@ -185,10 +201,11 @@ r=sfo('hhsx3'); r=sfo('hhsx3'); c=ev(r,'choose')
 box=c[0][2][0] if c else 0
 check('开始双修 → 武学面板：第一位的武学、只看内功、筛选 28、剧情目标人物 = 第二位', r['ok'] and len(c)==1 and c[0][1]==0 and state['box'].get(box)==11 and STRS.get(c[0][2][1])=='0' and c[0][3:]==('StudyFightOther','hhsx5',28) and r64(pc+0x70)==B, r)
 Ask=lget(r64(A+0x260))[0]
-choose('skill',Ask); r=sfo('hhsx5'); e=ev(r,'exp'); p=ev(r,'plot')
-check('选内功 → 主角 / 两位弟子各加 2100 实战经验（3 级内功），主角显示提示', r['ok'] and e==[('exp',1,2100.0,100,P_NG,1),('exp',11,2100.0,100,Ask,0),('exp',12,2100.0,100,lget(r64(B+0x260))[0],0)], r)
-check('剧情目标人物改回原来的', r64(pc+0x70)==old)
-check('结果剧情', p and p[0][1]=='一番真气交融、阴阳相济，[玉女心经]的实战经验各增加了 2100 点。' and p[0][2]==['如此甚好;HideInteractUIOneDay'] and p[0][3]=='11', p)
+choose('skill',Ask); r=sfo('hhsx5'); w=ev(r,'work')
+check('选内功 → 剧情目标人物改回、关对话、开始「双修」进度 2 天（3 级），结束回调 hhsx6', r['ok'] and r64(pc+0x70)==old and 'hideinteract' in r['log'] and w==[('work','双修',2,'StudyFightOther','hhsx6')] and not ev(r,'show'), r)
+check('进度中还没用次数', iget(r64(r64(A+0x308)+0x10))[40:41]!=[0])
+w8(wk+0x60,1); r=sfo('hhsx6'); sh=ev(r,'show')
+check('进度结束 → 经验条面板三条（主角、第一位、第二位），各 2100、标题带名字和各自加成', r['ok'] and sh==[('show',1,100,2100.0,'人1：玉女心经增加实战经验 2100 (+35%)'),('show',11,100,2100.0,'人11：玉女心经增加实战经验 2100 (+20%)'),('show',12,100,2100.0,'人12：玉女心经增加实战经验 2100 (0%)')], sh)
 la=iget(r64(r64(A+0x308)+0x10)); lb=iget(r64(r64(B+0x308)+0x10))
 check('两位弟子本月次数用掉（列表补到 41 格，其余补 1）', len(la)==41 and la[40]==0 and la[30:40]==[1]*10 and lb[40]==0, (la,lb))
 r=sms('hhsx0'); t=ev(r,'tip')
@@ -204,7 +221,10 @@ check('只剩... 选 B 后还有 A 可唤', p[0][2][0].startswith('再唤一位'
 r=sfo('hhsx3'); c=ev(r,'choose')
 check('只有一位 → 剧情目标人物 = 她自己', c and state['box'][c[0][2][0]]==12 and r64(pc+0x70)==B, r)
 Bsk=lget(r64(B+0x260))[0]
-choose('skill',Bsk); r=sfo('hhsx5'); e=ev(r,'exp')
+choose('skill',Bsk); r=sfo('hhsx5'); w8(wk+0x60,0); r=sfo('hhsx6')
+check('中途取消 → 不加经验、不用次数', r['ok'] and not ev(r,'show') and iget(r64(r64(B+0x308)+0x10))[40]==1, r)
+r=sfo('hhsx6'); check('取消后再收到结束回调也不做事', not ev(r,'show'))
+choose('hero',B); r=sfo('hhsx1'); r=sfo('hhsx3'); choose('skill',Bsk); r=sfo('hhsx5'); w8(wk+0x60,1); r=sfo('hhsx6'); e=ev(r,'show')
 check('一位：主角 + 她', r['ok'] and [x[1] for x in e]==[1,12], e)
 check('只用掉她的次数', iget(r64(r64(B+0x308)+0x10))[40]==0 and iget(r64(r64(A+0x308)+0x10))[40]==1)
 # 没有别人可唤
@@ -215,13 +235,38 @@ w64(A+0x260,mlist([skill(999,0,2,'别的内功')]))
 r=sfo('hhsx3'); p=ev(r,'plot')
 check('没有共同内功 → 剧情提示、不开面板', r['ok'] and not ev(r,'choose') and p and p[0][2]==['只好作罢;HideInteractUI'], r)
 # 等级上下限
-w64(A+0x260,mlist([skill(300,0,1,'吐纳法')]))
-r=sfo('hhsx3'); choose('skill',lget(r64(A+0x260))[0]); r=sfo('hhsx5'); e=ev(r,'exp')
-check('1 级内功 → 900', e and e[0][2]==900.0, e)
+w64(A+0x260,mlist([skill(300,0,1,'吐纳法')])); SK[lget(r64(A+0x260))[0]]['owner']=A
+l=r64(r64(A+0x308)+0x10); w32(r64(l+0x10)+0x20+40*4,1)
+r=sfo('hhsx3'); choose('skill',lget(r64(A+0x260))[0]); r=sfo('hhsx5'); w=ev(r,'work'); r=sfo('hhsx6'); e=ev(r,'show')
+check('1 级内功 → 1 天、900', w and w[0][2]==1 and e and e[0][3]==900.0, (w,e))
+for lv,days in ((0,1),(2,2),(4,3),(5,3)):
+    w64(A+0x260,mlist([skill(300,0,lv,'吐纳法')])); SK[lget(r64(A+0x260))[0]]['owner']=A
+    w64(player+0x260,mlist([skill(300,0,lv,'吐纳法')])); SK[lget(r64(player+0x260))[0]]['owner']=player
+    for h in (A,):
+        l=r64(r64(h+0x308)+0x10); w32(r64(l+0x10)+0x20+40*4,1)
+    choose('hero',A); r=sfo('hhsx1'); r=sfo('hhsx3'); choose('skill',lget(r64(A+0x260))[0]); r=sfo('hhsx5'); w=ev(r,'work')
+    r=sfo('hhsx6'); e=ev(r,'show')
+    check('等级 %d → %d 天、%d 经验'%(lv,days,[400,900,1500,2100,2600,3100][lv]), w and w[0][2]==days and e and e[0][3]==[400,900,1500,2100,2600,3100][lv], (w,e))
 check('Int32 类只查一次', state['i32']==1)
 # 选人面板拿不到人物 → 什么都不做
 choose('hero',0); r=sfo('hhsx1'); check('没选到人 → 不做事', r['ok'] and r['log']==[], r)
 # 没有 playerInteractionTimeData 的人当作可用，用时不出错
 X=hero(20,pit=False); own.append(X)
 r=sms('hhsx0'); check('没有互动数据的人也列出', X in ev(r,'choose')[0][2])
+# 经验条面板转接：主角.AddSkillFightExp(…, 弟子的武学) → 弟子.AddSkillFightExp(…)
+def thunk(rcx,skill_,num):
+    state['log']=[]
+    rsp=STACK+0x40000-8; w64(rsp,0x77770000); w64(rsp+0x28,0xABCD)
+    for k,reg in enumerate(KEEP): mu.reg_write(reg,0x1111*(k+1))
+    keep={reg:mu.reg_read(reg) for reg in KEEP}
+    mu.reg_write(UC_X86_REG_RSP,rsp); mu.reg_write(UC_X86_REG_RCX,rcx); mu.reg_write(UC_X86_REG_R8,skill_); mu.reg_write(UC_X86_REG_R9,0)
+    mu.reg_write(UC_X86_REG_XMM1,struct.unpack('<I',struct.pack('<f',num))[0])
+    mu.emu_start(CAVE+10,0x77770000,count=10000)
+    return state['log'], mu.reg_read(UC_X86_REG_RSP)==rsp+8 and all(mu.reg_read(reg)==keep[reg] for reg in KEEP)
+lg,okk=thunk(player,Ask,123.5)
+check('面板加经验：弟子的武学由弟子加（经验、参数不变）', okk and lg==[('addexp',A,123.5,Ask,0,0xABCD)], lg)
+lg,okk=thunk(player,P_NG,7.0)
+check('面板加经验：主角的武学照旧由主角加', okk and lg==[('addexp',player,7.0,P_NG,0,0xABCD)], lg)
+orphan=skill(5,0,0,'无主'); lg,okk=thunk(player,orphan,1.0)
+check('找不到主人 → 照旧由主角加', okk and lg==[('addexp',player,1.0,orphan,0,0xABCD)], lg)
 sys.exit(0 if ok else 1)

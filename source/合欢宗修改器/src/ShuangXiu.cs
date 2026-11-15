@@ -1,9 +1,11 @@
 // 合欢殿「双修」：选本门女弟子（最多两位，在队伍里或在门派里，每人每月一次），选一门大家都会的内功，
-//   主角和弟子各得该内功的实战经验（按内功等级 400/900/1500/2100/2600/3100）。
+//   过几天后主角和弟子各得该内功的实战经验（按内功等级 400/900/1500/2100/2600/3100，再乘各人的实战经验加成）。
 // 做法：GameAssembly.dll 末尾新增可读写执行的代码节 .hhsx，放入 ShuangXiuCave 的机器码；挂两处：
 //   BuildingUIController.StudyMaxState(param) 开头（合欢殿互动选项「双修」传 "hhsx0"），
 //   PlotController.StudyFightOther(param) 开头（选人 / 选武学面板的回调和剧情选项传 "hhsx1"~"hhsx5"）；
 //   参数不是这些标记时两个函数照常执行。合欢殿的互动选项在建筑表里（安装合欢殿时一起写入）。
+//   选好内功后用 WorkingUIController 过几天（天数同研读秘籍：等级 / 2 + 1），结束后在经验条面板（同研读秘籍后）给每人加一条；
+//   经验条面板原来固定给主角加经验，SkillExpShowPrefab.Update 里那个 call 改为调用新代码 +10：由武学的主人加。
 using System;
 using System.Collections.Generic;
 
@@ -17,7 +19,7 @@ namespace LongYinMod
         class SxTargets
         {
             public long SmsOff, SfoOff;
-            public ulong SmsVa, SfoVa;
+            public ulong SmsVa, SfoVa, ExpCallVa;   // ExpCallVa：经验条面板里 call AddSkillFightExp 的位置
             public Dictionary<string, ulong> Ext = new Dictionary<string, ulong>(StringComparer.OrdinalIgnoreCase);
         }
 
@@ -51,6 +53,7 @@ namespace LongYinMod
             Func<string, string, string[], ulong> vaCore = (ty, me, ps) => core.MethodVa(m.FindMethod("UnityEngine", ty, me, ps).Token);
             Func<string, string, string[], ulong> vaSys = (ty, me, ps) => corlib.MethodVa(m.FindMethod("System", ty, me, ps).Token);
             var none = new string[0];
+            Action<string, string, int> fld = (ty, f, want) => { if (fo.Offset(null, ty, f) != want) throw bad(ty + "." + f + "(+" + want.ToString("X") + "h)"); };
 
             // 两个挂钩点：开头 3 个 push 正好 5 字节
             ulong sms = va("BuildingUIController", "StudyMaxState", new[] { "param" });
@@ -90,6 +93,15 @@ namespace LongYinMod
             t.Ext["ClassFrom"] = pe.Export("il2cpp_class_from_name");
             t.Ext["Wb"] = pe.Export("il2cpp_gc_wbarrier_set_field");
             t.Ext["ObjNew"] = pe.Export("il2cpp_object_new");
+            t.Ext["Belong"] = va("KungfuSkillLvData", "GetBelongHero", none);
+            t.Ext["HideInteract"] = va("PlotController", "HideInteractUI", none);
+            t.Ext["WkInst"] = va("WorkingUIController", "get_Instance", none);
+            t.Ext["StartWork"] = va("WorkingUIController", "StartWorking", new[] { "_workName", "dayNum", "callFuc", "callFucParam", "finishCallFuc", "finishCallFucParam" });
+            t.Ext["SpeInst"] = va("SpeShowController", "get_Instance", none);
+            t.Ext["ShowExp"] = va("SpeShowController", "ShowGetSkillExp", new[] { "_targetSkill", "_totalExp", "_expType", "showText" });
+            t.Ext["HeroName"] = va("HeroData", "HeroName", new[] { "useSetName" });
+            t.Ext["FightRate"] = va("HeroData", "GetFightExpRate", new[] { "targetSkill" });
+            t.Ext["F2S"] = vaSys("Single", "ToString", new[] { "format" });
             // 剧情选项里用到的函数
             va("PlotController", "HideInteractUI", none);
             va("PlotController", "HideInteractUIOneDay", none);
@@ -145,8 +157,33 @@ namespace LongYinMod
             t.Ext["SlotIntAdd"] = RipTarget(pe, dll, e, 7);
             t.Ext["IntAdd"] = CallTarget(pe, dll, e + 12);
 
+            // 经验条面板 SkillExpShowPrefab.Update：实战经验分支
+            //   mov r8,[rbx+18h](targetSkill) ; xor r9d,r9d ; movaps xmm1,xmm6 ; mov qword [rsp+20h],0 ; mov rcx,rax(主角) ; call AddSkillFightExp
+            long up = pe.VaToOff(va("SkillExpShowPrefab", "Update", none));
+            //   （理论经验分支代码相同、调用 AddSkillBookExp，按调用目标区分）
+            int g = -1, hits = 0;
+            var gp = Pat("4C 8B 43 18 45 33 C9 0F 28 CE 48 C7 44 24 20 00 00 00 00 48 8B C8 E8");
+            for (int q = Bin.IndexOfPattern(dll, gp, (int)up, (int)up + 0x300); q >= 0; q = Bin.IndexOfPattern(dll, gp, q + 1, (int)up + 0x300))
+                if (CallTarget(pe, dll, q + 22) == t.Ext["AddExp"]) { g = q; hits++; }
+            if (hits != 1) throw bad("经验条面板里加实战经验");
+            t.ExpCallVa = pe.OffToVa(g + 22);
+            // 进度结束回调发给的对象 = PlotController（StopWorking 里取对象的 getter 与 PlotController.get_Instance 读同一个类槽）
+            Func<ulong, ulong> getterSlot = gv =>
+            {
+                long o = pe.VaToOff(gv);
+                int i = Bin.IndexOf(dll, new byte[] { 0x48, 0x8B, 0x05 }, (int)o, (int)o + 0x40);
+                return i < 0 ? 0 : RipTarget(pe, dll, i, 7);
+            };
+            long sw = pe.VaToOff(va("WorkingUIController", "StopWorking", new[] { "finished" }));
+            int gc = UniquePat(dll, "33 C9 E8 ?? ?? ?? ?? 48 85 C0 74 ?? 48 8B 53 38", sw, 0x100, bad, "进度结束回调");
+            ulong pcSlot = getterSlot(t.Ext["PcInst"]);
+            if (pcSlot == 0 || getterSlot(CallTarget(pe, dll, gc + 2)) != pcSlot) throw bad("进度结束回调的对象");
+            fld("WorkingUIController", "finishFuc", 0x38); fld("WorkingUIController", "workFinished", 0x60);
+            fld("SkillExpShowPrefab", "targetSkill", 0x18);
+            // 研读天数 = floor(武学等级 × 0.5) + 1：movd xmm0,[rax+34h] ; cvtdq2ps ; mulss ; FloorToInt ; inc eax
+            if (Require0(dll, pe.VaToOff(va("BookData", "ReadDayCost", none)), 0x100, new byte[] { 0x66, 0x0F, 0x6E, 0x40, 0x34, 0x33, 0xD2, 0x0F, 0x5B, 0xC0 }) < 0) throw bad("研读天数");
+
             // 汇编里写死的字段偏移和枚举值
-            Action<string, string, int> fld = (ty, f, want) => { if (fo.Offset(null, ty, f) != want) throw bad(ty + "." + f + "(+" + want.ToString("X") + "h)"); };
             fld("HeroData", "heroID", 0x58); fld("HeroData", "isFemale", 0x80); fld("HeroData", "dead", 0x61);
             fld("HeroData", "atAreaID", 0xC0); fld("HeroData", "inPrison", 0xD1); fld("HeroData", "kungfuSkills", 0x260);
             fld("HeroData", "inTeam", 0x2F0); fld("HeroData", "teamLeader", 0x2F4); fld("HeroData", "playerInteractionTimeData", 0x308);
@@ -164,6 +201,8 @@ namespace LongYinMod
             if (CountFields(m, pit) - 1 >= 40) throw bad("互动次数种类数（本功能用第 40 格）");
             return t;
         }
+
+        static int Require0(byte[] d, long start, int len, byte[] pat) { return Bin.IndexOf(d, pat, (int)start, (int)start + len); }
 
         static int CountFields(Il2CppMeta m, int typeIndex)
         {
@@ -202,6 +241,9 @@ namespace LongYinMod
                 outb[jo] = 0xE9;
                 Array.Copy(BitConverter.GetBytes((int)((long)j.To - (long)(j.Va + 5))), 0, outb, jo + 1, 4);
             }
+            // 经验条面板：call AddSkillFightExp → call 新代码 +10（按武学的主人加经验）
+            long co = new PeImage(outb).VaToOff(t.ExpCallVa);
+            Array.Copy(BitConverter.GetBytes((int)((long)(caveVa + 10) - (long)(t.ExpCallVa + 5))), 0, outb, co + 1, 4);
             return outb;
         }
     }
