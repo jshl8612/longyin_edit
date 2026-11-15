@@ -147,11 +147,12 @@ namespace LongYinMod
             Array.Copy(cave, 0, outb, caveOff, cave.Length);
             // 钩子：movaps xmm6,[rsp+N]（5 字节）→ jmp 入口（秘籍 +0，武功 +5）
             long j = (long)caveVa - (long)(t.HookVa + 5);
-            outb[t.HookOff] = 0xE9;
-            Array.Copy(BitConverter.GetBytes((int)j), 0, outb, t.HookOff + 1, 4);
+            long hookOff = pe2.VaToOff(t.HookVa), skillOff = pe2.VaToOff(t.SkillVa);   // 加大 PE 头后文件偏移会变
+            outb[hookOff] = 0xE9;
+            Array.Copy(BitConverter.GetBytes((int)j), 0, outb, hookOff + 1, 4);
             long j2 = (long)(caveVa + 5) - (long)(t.SkillVa + 5);
-            outb[t.SkillOff] = 0xE9;
-            Array.Copy(BitConverter.GetBytes((int)j2), 0, outb, t.SkillOff + 1, 4);
+            outb[skillOff] = 0xE9;
+            Array.Copy(BitConverter.GetBytes((int)j2), 0, outb, skillOff + 1, 4);
             return outb;
         }
     }

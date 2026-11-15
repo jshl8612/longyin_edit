@@ -163,8 +163,10 @@ namespace LongYinMod
                 Array.Copy(BitConverter.GetBytes((int)rel), 0, cave, at, 4);
             }
             Array.Copy(cave, 0, outb, new PeImage(outb).VaToOff(caveVa), cave.Length);
+            var pe2 = new PeImage(outb);
             Action<long, ulong, ulong, int> jmp = (off, from, to, len) =>
             {
+                off = pe2.VaToOff(from);   // 加大 PE 头后文件偏移会变
                 outb[off] = 0xE9;
                 Array.Copy(BitConverter.GetBytes((int)((long)to - (long)(from + 5))), 0, outb, off + 1, 4);
                 for (int i = 5; i < len; i++) outb[off + i] = 0x90;

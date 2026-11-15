@@ -117,7 +117,7 @@ namespace LongYinMod
             foreach (var j in new[] { new { Off = t.JeOff, Va = t.JeVa }, new { Off = t.JaeOff, Va = t.JaeVa } })
             {
                 long rel = (long)caveVa - (long)(j.Va + 6);
-                Array.Copy(BitConverter.GetBytes((int)rel), 0, outb, j.Off + 2, 4);
+                Array.Copy(BitConverter.GetBytes((int)rel), 0, outb, new PeImage(outb).VaToOff(j.Va) + 2, 4);   // 加大 PE 头后文件偏移会变
             }
             return outb;
         }

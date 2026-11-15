@@ -15,7 +15,7 @@ namespace LongYinMod
         public const string AreaLimit = "999";           // matches no area -> never pre-placed at new game
 
         // column name -> value; columns not listed are copied from the look-alike row
-        public static Dictionary<string, string> Row(int newId, int iconId)
+        public static Dictionary<string, string> Row(int newId, int iconId, bool shuangXiu)
         {
             return new Dictionary<string, string>
             {
@@ -26,7 +26,7 @@ namespace LongYinMod
                 { "唯一", "1" },
                 { "居中", "0" },
                 { "随机位置", "4" },
-                { "互动选项", "提升内力上限-我-StudyMaxState-1;提升生命上限-我-StudyMaxState-0;宴饮-我-SpeStartParty;招女弟子?招募门派弟子-我-StartHireFollower" },
+                { "互动选项", "提升内力上限-我-StudyMaxState-1;提升生命上限-我-StudyMaxState-0;宴饮-我-SpeStartParty;招女弟子?招募门派弟子-我-StartHireFollower" + (shuangXiu ? ";" + GamePatcher.SxButton : "") },
                 { "每月产出", "粮食+150" },
                 { "每月维护", "银钱-100" },
                 { "加成", "全员内功2;全员绝技2;内功经验0.2;全员口才2" },
@@ -275,7 +275,7 @@ namespace LongYinMod
             return sf.WithObjectReplaced(oi.PathId, ms.ToArray());
         }
 
-        byte[] PatchBuilding(byte[] res)
+        byte[] PatchBuilding(byte[] res, bool shuangXiu)
         {
             var sf = new SerializedFile(res);
             var oi = FindTextAsset(sf, "BuildingData");
@@ -285,7 +285,7 @@ namespace LongYinMod
             var look = t.RowByName(Hhd.LookAlike);
             if (look == null) throw new ModException("建筑表里找不到「" + Hhd.LookAlike + "」，无法借用外观");
             if (t.Id(look) != IconId || t.MaxId() + 1 != NewId) throw new ModException("内部错误：建筑编号不一致");
-            return ReplaceText(sf, oi, t.AppendRow(Hhd.Row(NewId, int.Parse(look[t.Col("图标")])), look));
+            return ReplaceText(sf, oi, t.AppendRow(Hhd.Row(NewId, int.Parse(look[t.Col("图标")]), shuangXiu), look));
         }
 
         byte[] PatchTag(byte[] res)
@@ -586,7 +586,7 @@ namespace LongYinMod
         }
 
         // ---------------- orchestration (independent, selectable features) ----------------
-        public const string FHff = "hff", FCustom = "custom", FBook = "book", FRead = "read", FAuct = "auct", FLib = "lib", FHhd = "hhd", FTag = "tag";
+        public const string FHff = "hff", FCustom = "custom", FBook = "book", FRead = "read", FAuct = "auct", FLib = "lib", FSx = "sx", FHhd = "hhd", FTag = "tag";
 
         public class FileState
         {
@@ -651,7 +651,8 @@ namespace LongYinMod
             Func<byte[], bool> readOn = d => Safe(() => ReadSkipPatched(d));
             Func<byte[], bool> auctOn = d => Safe(() => AutoBidPatched(d));
             Func<byte[], bool> libOn = d => Safe(() => LibKungfuPatched(d));
-            var dll = LoadFile(G.Dll, d => hffOn(d) || csOn(d) || bookOn(d) || readOn(d) || auctOn(d) || libOn(d));
+            Func<byte[], bool> sxOn = d => Safe(() => SxPatched(d));
+            var dll = LoadFile(G.Dll, d => hffOn(d) || csOn(d) || bookOn(d) || readOn(d) || auctOn(d) || libOn(d) || sxOn(d));
             var res = LoadFile(G.Resources, d => HasBuilding(d) || HasTag(d));
             var ggm = LoadFile(G.Ggm, GgmPatched);
             ResolveAtlas(ggm.Pristine);
@@ -678,6 +679,8 @@ namespace LongYinMod
                 Desc = "开拍 / 出价按钮旁加「自动出价」，别人出价就自动跟，上限是背包钱数", Installed = auctOn(dll.Current) });
             plan.Features.Add(new Feature { Key = FLib, Title = "本门武学看藏经阁", Files = new[] { nDll },
                 Desc = "本门（主角所在门派）的人：秘籍在本门藏经阁里的武学算本门武学，吃本门武学威力加成；其他门派不变", Installed = libOn(dll.Current) });
+            plan.Features.Add(new Feature { Key = FSx, Title = "合欢殿双修", Files = new[] { nDll, nRes },
+                Desc = "合欢殿加「双修」：选本门女弟子（最多两位，在队伍或门派里，每人每月一次）和大家都会的内功，主角和弟子各得实战经验（按内功等级 400~3100）。需同时安装合欢殿", Installed = sxOn(dll.Current) });
             plan.Features.Add(new Feature { Key = FHhd, Title = "合欢殿", Files = new[] { nRes, nGgm, nAtl },
                 Desc = "新建筑（借用金顶外观），自立门户后可建造", Installed = HasBuilding(res.Current) || GgmPatched(ggm.Current) || AtlasPatched(atl.Current) });
             plan.Features.Add(new Feature { Key = FTag, Title = "合欢宗主天赋", Files = new[] { nRes },
@@ -693,9 +696,10 @@ namespace LongYinMod
                 if (sel.Contains(FRead)) d = PatchReadSkip(d, meta);
                 if (sel.Contains(FAuct)) d = PatchAutoBid(d, meta);
                 if (sel.Contains(FLib)) d = PatchLibKungfu(d, meta);
+                if (sel.Contains(FSx)) d = PatchSx(d, meta);
                 o[dll.Path] = d;
                 var r = res.Pristine;
-                if (sel.Contains(FHhd)) r = PatchBuilding(r);
+                if (sel.Contains(FHhd)) r = PatchBuilding(r, sel.Contains(FSx));
                 if (sel.Contains(FTag)) r = PatchTag(r);
                 o[res.Path] = r;
                 o[ggm.Path] = sel.Contains(FHhd) ? PatchGgm(ggm.Pristine) : ggm.Pristine;

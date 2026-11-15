@@ -88,8 +88,9 @@ namespace LongYinMod
             Array.Copy(cave, 0, outb, new PeImage(outb).VaToOff(caveVa), cave.Length);
             foreach (var j in new[] { new { Off = t.DmgOff, Va = t.DmgVa, To = caveVa + 0 }, new { Off = t.FsOff, Va = t.FsVa, To = caveVa + 5 } })
             {
-                outb[j.Off] = 0xE9;
-                Array.Copy(BitConverter.GetBytes((int)((long)j.To - (long)(j.Va + 5))), 0, outb, j.Off + 1, 4);
+                long jo = new PeImage(outb).VaToOff(j.Va);   // 加大 PE 头后文件偏移会变
+                outb[jo] = 0xE9;
+                Array.Copy(BitConverter.GetBytes((int)((long)j.To - (long)(j.Va + 5))), 0, outb, jo + 1, 4);
             }
             return outb;
         }

@@ -346,7 +346,11 @@ namespace LongYinMod
             int hdr = opt + optSize + nsec * 40;
             uint firstRaw = uint.MaxValue;
             foreach (var s in img.Sections) if (s.RawSize > 0) firstRaw = Math.Min(firstRaw, s.RawPtr);
-            if (hdr + 40 > Math.Min(hdrSize, firstRaw)) throw new ModException("PE 头没有空间再加一个节");
+            if (hdr + 40 > Math.Min(hdrSize, firstRaw))
+            {
+                if (hdrSize != firstRaw) throw new ModException("PE 头没有空间再加一个节");
+                return AddSection(ExpandHeaders(data), name, size, characteristics, out caveVa);
+            }
             for (int i = hdr; i < hdr + 40; i++) if (data[i] != 0) throw new ModException("PE 头节表后面不是空的");
             var last = img.Sections[img.Sections.Count - 1];
             Func<long, uint, long> align = (v, a) => (v + a - 1) / a * a;
@@ -366,6 +370,49 @@ namespace LongYinMod
             Array.Copy(BitConverter.GetBytes((ushort)(nsec + 1)), 0, o, pe + 6, 2);
             Array.Copy(BitConverter.GetBytes((uint)align(va + size, secAlign)), 0, o, opt + 56, 4);   // SizeOfImage
             caveVa = img.ImageBase + va;
+            return o;
+        }
+
+        // PE 头加大一个 FileAlignment：之后的文件内容整体后移，修正所有以文件偏移记录的位置
+        //（各节 PointerToRawData、调试目录的 PointerToRawData、证书表）
+        public static byte[] ExpandHeaders(byte[] data)
+        {
+            var img = new PeImage(data);
+            int pe = Bin.I32(data, 0x3C);
+            int nsec = Bin.U16(data, pe + 6);
+            int opt = pe + 24;
+            if (Bin.U16(data, opt) != 0x20B) throw new ModException("不是 64 位 PE");
+            uint fileAlign = Bin.U32(data, opt + 36), hdrSize = Bin.U32(data, opt + 60);
+            int secTab = opt + Bin.U16(data, pe + 20);
+            if (hdrSize + fileAlign > 0x10000) throw new ModException("PE 头已经太大");
+            var o = new byte[data.Length + fileAlign];
+            Array.Copy(data, 0, o, 0, hdrSize);
+            Array.Copy(data, hdrSize, o, hdrSize + fileAlign, data.Length - hdrSize);
+            Bin.PutU32(o, opt + 60, hdrSize + fileAlign);
+            for (int i = 0; i < nsec; i++)
+            {
+                int sh = secTab + i * 40;
+                uint raw = Bin.U32(o, sh + 20);
+                if (raw != 0) Bin.PutU32(o, sh + 20, raw + fileAlign);
+                if (Bin.U32(o, sh + 24) != 0 || Bin.U32(o, sh + 28) != 0) throw new ModException("节里有 COFF 重定位 / 行号，无法加大 PE 头");
+            }
+            int dirs = opt + 112;
+            // 证书表（目录 4）记的是文件偏移
+            uint certOff = Bin.U32(o, dirs + 4 * 8);
+            if (certOff != 0) Bin.PutU32(o, dirs + 4 * 8, certOff + fileAlign);
+            // 调试目录（目录 6）：每项 28 字节，+24 是 PointerToRawData
+            uint dbgRva = Bin.U32(o, dirs + 6 * 8), dbgSize = Bin.U32(o, dirs + 6 * 8 + 4);
+            if (dbgRva != 0)
+            {
+                long dbg = img.VaToOff(img.ImageBase + dbgRva);
+                if (dbg <= 0) throw new ModException("调试目录位置异常");
+                dbg += fileAlign;
+                for (uint k = 0; k + 28 <= dbgSize; k += 28)
+                {
+                    uint pr = Bin.U32(o, dbg + k + 24);
+                    if (pr != 0) Bin.PutU32(o, dbg + k + 24, pr + fileAlign);
+                }
+            }
             return o;
         }
 
@@ -450,6 +497,18 @@ namespace LongYinMod
             return -1;
         }
 
+        public int TypeCount { get { return typeSize / TSZ; } }
+
+        // 类里字段的序号（与 IL2CPP 字段偏移表的下标一致），找不到返回 -1
+        public int FieldIndex(int typeIndex, string field)
+        {
+            int b = typeOff + typeIndex * TSZ;
+            int fs = Bin.I32(D, b + 32), fc = Bin.U16(D, b + 68), fo = Bin.I32(D, 96);
+            for (int k = 0; k < fc; k++)
+                if (Str(Bin.I32(D, fo + (fs + k) * 12)) == field) return k;
+            return -1;
+        }
+
         public class MethodRef { public string Name; public uint Token; public List<string> Params = new List<string>(); }
 
         public List<MethodRef> Methods(int typeIndex)
@@ -495,6 +554,49 @@ namespace LongYinMod
                 if (ok) return m;
             }
             throw new ModException("代码中找不到方法 " + type + "." + method + "(" + (paramNames == null ? "" : string.Join(",", paramNames)) + ")");
+        }
+    }
+
+    // 实例字段偏移：GameAssembly.dll 里 Il2CppMetadataRegistration 的 fieldOffsets 表
+    //   （紧挨着的两组「类数, 指针」：fieldOffsetsCount/fieldOffsets、typeDefinitionsSizesCount/typeDefinitionsSizes）
+    public class Il2CppFieldOffsets
+    {
+        PeImage pe; Il2CppMeta m; ulong table;
+
+        public Il2CppFieldOffsets(PeImage pe, Il2CppMeta m)
+        {
+            this.pe = pe; this.m = m;
+            var d = pe.Data;
+            long n = m.TypeCount;
+            var pat = BitConverter.GetBytes(n);
+            int found = -1, pos = 0;
+            while (true)
+            {
+                int r = Bin.IndexOf(d, pat, pos);
+                if (r < 0 || r + 32 > d.Length) break;
+                pos = r + 1;
+                if (r % 8 != 0 || Bin.I64(d, r + 16) != n) continue;
+                long p1 = pe.VaToOff((ulong)Bin.I64(d, r + 8)), p2 = pe.VaToOff((ulong)Bin.I64(d, r + 24));
+                if (p1 <= 0 || p2 <= 0) continue;
+                if (found >= 0) throw new ModException("字段偏移表不唯一");
+                found = r;
+            }
+            if (found < 0) throw new ModException("在 GameAssembly.dll 中找不到字段偏移表");
+            table = (ulong)Bin.I64(d, found + 8);
+        }
+
+        public int Offset(string ns, string type, string field)
+        {
+            int t = ns == null ? m.FindType(type) : m.FindType(ns, type);
+            if (t < 0) throw new ModException("代码中找不到类 " + type);
+            int k = m.FieldIndex(t, field);
+            if (k < 0) throw new ModException("类 " + type + " 里找不到字段 " + field);
+            long po = pe.VaToOff(table + (ulong)t * 8);
+            if (po <= 0) throw new ModException("字段偏移表异常");
+            ulong p = (ulong)Bin.I64(pe.Data, po);
+            long fo = pe.VaToOff(p + (ulong)k * 4);
+            if (p == 0 || fo <= 0) throw new ModException("字段偏移表异常（" + type + "." + field + "）");
+            return Bin.I32(pe.Data, fo);
         }
     }
 

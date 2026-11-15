@@ -1,0 +1,208 @@
+// 合欢殿「双修」：选本门女弟子（最多两位，在队伍里或在门派里，每人每月一次），选一门大家都会的内功，
+//   主角和弟子各得该内功的实战经验（按内功等级 400/900/1500/2100/2600/3100）。
+// 做法：GameAssembly.dll 末尾新增可读写执行的代码节 .hhsx，放入 ShuangXiuCave 的机器码；挂两处：
+//   BuildingUIController.StudyMaxState(param) 开头（合欢殿互动选项「双修」传 "hhsx0"），
+//   PlotController.StudyFightOther(param) 开头（选人 / 选武学面板的回调和剧情选项传 "hhsx1"~"hhsx5"）；
+//   参数不是这些标记时两个函数照常执行。合欢殿的互动选项在建筑表里（安装合欢殿时一起写入）。
+using System;
+using System.Collections.Generic;
+
+namespace LongYinMod
+{
+    public partial class GamePatcher
+    {
+        public const string SxSectionName = ".hhsx";
+        public const string SxButton = "双修?与门中女弟子同修内功，按内功等级增长实战经验-我-StudyMaxState-hhsx0";
+
+        class SxTargets
+        {
+            public long SmsOff, SfoOff;
+            public ulong SmsVa, SfoVa;
+            public Dictionary<string, ulong> Ext = new Dictionary<string, ulong>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        static int[] Pat(string s)
+        {
+            var p = s.Split(' ');
+            var r = new int[p.Length];
+            for (int i = 0; i < p.Length; i++) r[i] = p[i] == "??" ? -1 : Convert.ToInt32(p[i], 16);
+            return r;
+        }
+
+        static int UniquePat(byte[] d, string pat, long start, int len, Func<string, Exception> bad, string what)
+        {
+            var p = Pat(pat);
+            int a = Bin.IndexOfPattern(d, p, (int)start, (int)start + len);
+            if (a < 0 || Bin.IndexOfPattern(d, p, a + 1, (int)start + len) >= 0) throw bad(what);
+            return a;
+        }
+
+        SxTargets LocateSx(byte[] dll, byte[] meta)
+        {
+            var m = new Il2CppMeta(meta);
+            var pe = new PeImage(dll);
+            var cs = new Il2CppCode(pe, "Assembly-CSharp.dll");
+            var core = new Il2CppCode(pe, "UnityEngine.CoreModule.dll");
+            var corlib = new Il2CppCode(pe, "mscorlib.dll");
+            var fo = new Il2CppFieldOffsets(pe, m);
+            var t = new SxTargets();
+            Func<string, Exception> bad = what => new ModException("合欢殿双修：" + what + " 与预期不同（游戏代码可能已改）");
+            Func<string, string, string[], ulong> va = (ty, me, ps) => cs.MethodVa(m.FindMethod(ty, me, ps).Token);
+            Func<string, string, string[], ulong> vaCore = (ty, me, ps) => core.MethodVa(m.FindMethod("UnityEngine", ty, me, ps).Token);
+            Func<string, string, string[], ulong> vaSys = (ty, me, ps) => corlib.MethodVa(m.FindMethod("System", ty, me, ps).Token);
+            var none = new string[0];
+
+            // 两个挂钩点：开头 3 个 push 正好 5 字节
+            ulong sms = va("BuildingUIController", "StudyMaxState", new[] { "param" });
+            ulong sfo = va("PlotController", "StudyFightOther", new[] { "param" });
+            t.SmsVa = sms; t.SmsOff = pe.VaToOff(sms);
+            t.SfoVa = sfo; t.SfoOff = pe.VaToOff(sfo);
+            if (Bin.IndexOf(dll, new byte[] { 0x40, 0x53, 0x56, 0x41, 0x55 }, (int)t.SmsOff, (int)t.SmsOff + 5) != t.SmsOff) throw bad("StudyMaxState 开头");
+            if (Bin.IndexOf(dll, new byte[] { 0x40, 0x53, 0x55, 0x41, 0x57 }, (int)t.SfoOff, (int)t.SfoOff + 5) != t.SfoOff) throw bad("StudyFightOther 开头");
+            t.Ext["SmsBack"] = sms + 5;
+            t.Ext["SfoBack"] = sfo + 5;
+
+            t.Ext["Player"] = va("WorldData", "Player", none);
+            t.Ext["World"] = FindWorldGetter(dll, pe, cs, m, t.Ext["Player"]);
+            t.Ext["GetHero"] = va("WorldData", "GetHero", new[] { "heroID" });
+            t.Ext["GetForce"] = va("HeroData", "GetForce", new[] { "includeServant" });
+            t.Ext["OwnHeros"] = va("ForceData", "GetOwnHeros", none);
+            t.Ext["FindSkill"] = va("HeroData", "FindSkill", new[] { "targetSkillID" });
+            t.Ext["Database"] = va("KungfuSkillLvData", "DataBase", none);
+            t.Ext["SkName"] = va("KungfuSkillLvData", "Name", new[] { "colored" });
+            t.Ext["AddExp"] = va("HeroData", "AddSkillFightExp", new[] { "num", "targetSkill", "showInfo" });
+            t.Ext["CcInst"] = va("ChooseController", "get_Instance", none);
+            t.Ext["ShowChoose"] = va("ChooseController", "ShowChoosePanel", new[] { "_chooseType", "param", "_sendResultFucTarget", "_sendResultFuc", "_sendResultParam", "_filterType", "_cancelFuc" });
+            t.Ext["PcInst"] = va("PlotController", "get_Instance", none);
+            t.Ext["GetGo"] = vaCore("Component", "get_gameObject", none);
+            t.Ext["BuInst"] = va("BuildingUIController", "get_Instance", none);
+            t.Ext["HideBu"] = va("BuildingUIController", "HideBuildingUI", none);
+            t.Ext["GcInst"] = va("GameController", "get_Instance", none);
+            t.Ext["Tip"] = va("GameController", "ShowTextOnMouse", new[] { "text" });
+            t.Ext["PlotCtor"] = va("SinglePlotData", ".ctor", new[] { "targetPlotText", "choiceDataTexts", "targetHeroType", "targetHeroName" });
+            t.Ext["ChangePlot"] = va("PlotController", "ChangePlot", new[] { "plotData", "heroID" });
+            t.Ext["I2S"] = vaSys("Int32", "ToString", none);
+            t.Ext["Concat4"] = vaSys("String", "Concat", new[] { "str0", "str1", "str2", "str3" });
+            t.Ext["Concat2"] = vaSys("String", "Concat", new[] { "str0", "str1" });
+            t.Ext["StrNew"] = pe.Export("il2cpp_string_new");
+            t.Ext["ValueBox"] = pe.Export("il2cpp_value_box");
+            t.Ext["Corlib"] = pe.Export("il2cpp_get_corlib");
+            t.Ext["ClassFrom"] = pe.Export("il2cpp_class_from_name");
+            t.Ext["Wb"] = pe.Export("il2cpp_gc_wbarrier_set_field");
+            t.Ext["ObjNew"] = pe.Export("il2cpp_object_new");
+            // 剧情选项里用到的函数
+            va("PlotController", "HideInteractUI", none);
+            va("PlotController", "HideInteractUIOneDay", none);
+
+            // 「切磋」选人回调 StudyFightOtherTargetChoose：取 List<string>、GetComponent<HeroIconController>、SinglePlotData 的用法
+            ulong tcVa = va("PlotController", "StudyFightOtherTargetChoose", none);
+            long tc = pe.VaToOff(tcVa);
+            // 函数开头：lea rcx,[rip+槽] ; call 初始化
+            if (dll[tc + 0x12] != 0x48 || dll[tc + 0x13] != 0x8D || dll[tc + 0x14] != 0x0D || dll[tc + 0x19] != 0xE8) throw bad("切磋回调开头的初始化");
+            t.Ext["InitMd"] = CallTarget(pe, dll, (int)tc + 0x19);
+            // mov rcx,[rip+List<string>类] ; call 新建 ; mov rdx,[rip+构造] ; mov rcx,rax ; mov rsi,rax ; call 构造
+            int a = UniquePat(dll, "48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 15 ?? ?? ?? ?? 48 8B C8 48 8B F0 E8", tc, 0x300, bad, "切磋回调里新建选项列表");
+            t.Ext["SlotListK"] = RipTarget(pe, dll, a, 7);
+            ulong objNewCg = CallTarget(pe, dll, a + 7);
+            t.Ext["SlotListCtor"] = RipTarget(pe, dll, a + 12, 7);
+            t.Ext["ListCtor"] = CallTarget(pe, dll, a + 25);
+            // mov r8,[rip+Add] ; mov rcx,rsi ; mov rdx,[rip+字符串] ; call Add
+            int b = UniquePat(dll, "4C 8B 05 ?? ?? ?? ?? 48 8B CE 48 8B 15 ?? ?? ?? ?? E8", tc, 0x300, bad, "切磋回调里添加选项");
+            t.Ext["SlotListAdd"] = RipTarget(pe, dll, b, 7);
+            t.Ext["ListAdd"] = CallTarget(pe, dll, b + 17);
+            // mov rcx,[rax+48h](chooseResult) ; test ; je ; mov rdx,[rip+槽] ; call GetComponent ; test ; je short ; mov rcx,[rax+20h](heroData)
+            int c = UniquePat(dll, "48 8B 48 48 48 85 C9 0F 84 ?? ?? ?? ?? 48 8B 15 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 85 C0 74 ?? 48 8B 48 20", tc, 0x300, bad, "切磋回调里取选中人物");
+            t.Ext["SlotHero"] = RipTarget(pe, dll, c + 13, 7);
+            t.Ext["GetComp"] = CallTarget(pe, dll, c + 20);
+            // 之后：mov rcx,[rip+SinglePlotData类] ; (mov rbx,rax ;) call 新建 …… call SinglePlotData..ctor
+            ulong plotK = 0;
+            for (int q = c; q < tc + 0x300 && plotK == 0; q++)
+                if (dll[q] == 0x48 && dll[q + 1] == 0x8B && dll[q + 2] == 0x0D)
+                    foreach (int k in new[] { 7, 10 })
+                        if (dll[q + k] == 0xE8 && CallTarget(pe, dll, q + k) == objNewCg)
+                        {
+                            bool ctor = false;
+                            for (int z = q + k + 5; z < q + k + 0x50; z++)
+                                if (dll[z] == 0xE8 && CallTarget(pe, dll, z) == t.Ext["PlotCtor"]) { ctor = true; break; }
+                            if (ctor) { plotK = RipTarget(pe, dll, q, 7); break; }
+                        }
+            if (plotK == 0) throw bad("切磋回调里新建剧情");
+            t.Ext["SlotPlotK"] = plotK;
+
+            // 情侣「一同修炼」选武学回调：GetComponent<武学图标> → +20h 交给 SetPlotSkill
+            long lc = pe.VaToOff(va("PlotController", "LoverStudyTogetherChoosen", none));
+            int d = UniquePat(dll, "48 8B 48 48 48 85 C9 0F 84 ?? ?? ?? ?? 48 8B 15 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 85 C0 0F 84 ?? ?? ?? ?? 48 8B 50 20", lc, 0x300, bad, "一同修炼回调里取选中武学");
+            if (CallTarget(pe, dll, d + 20) != t.Ext["GetComp"]) throw bad("GetComponent 调用");
+            ulong setSkill = va("PlotController", "SetPlotSkill", new[] { "targetSkill", "show" });
+            bool toSet = false;
+            for (int z = d + 39; z < d + 0x50; z++) if (dll[z] == 0xE8 && CallTarget(pe, dll, z) == setSkill) { toSet = true; break; }
+            if (!toSet) throw bad("一同修炼回调里的 SetPlotSkill");
+            t.Ext["SlotSkill"] = RipTarget(pe, dll, d + 13, 7);
+
+            // List<int>.Add：PlayerInteractionTimeData.CheckGameUpdate 里 mov r8,[rip+槽] ; mov edx,1 ; call Add
+            long cg = pe.VaToOff(va("PlayerInteractionTimeData", "CheckGameUpdate", none));
+            int e = UniquePat(dll, "4C 8B 05 ?? ?? ?? ?? BA 01 00 00 00 E8", cg, 0x200, bad, "互动次数列表的 Add");
+            t.Ext["SlotIntAdd"] = RipTarget(pe, dll, e, 7);
+            t.Ext["IntAdd"] = CallTarget(pe, dll, e + 12);
+
+            // 汇编里写死的字段偏移和枚举值
+            Action<string, string, int> fld = (ty, f, want) => { if (fo.Offset(null, ty, f) != want) throw bad(ty + "." + f + "(+" + want.ToString("X") + "h)"); };
+            fld("HeroData", "heroID", 0x58); fld("HeroData", "isFemale", 0x80); fld("HeroData", "dead", 0x61);
+            fld("HeroData", "atAreaID", 0xC0); fld("HeroData", "inPrison", 0xD1); fld("HeroData", "kungfuSkills", 0x260);
+            fld("HeroData", "inTeam", 0x2F0); fld("HeroData", "teamLeader", 0x2F4); fld("HeroData", "playerInteractionTimeData", 0x308);
+            fld("PlayerInteractionTimeData", "playerInteractTimeList", 0x10);
+            fld("PlotController", "targetInteractHero", 0x70);
+            fld("ChooseController", "chooseResult", 0x48);
+            fld("HeroIconController", "heroData", 0x20);
+            fld("KungfuSkillLvData", "skillID", 0x10);
+            fld("KungfuSkillData", "type", 0x30); fld("KungfuSkillData", "rareLv", 0x34);
+            Action<string, string, int> enm = (ty, f, want) => { int ti = m.FindType(ty); if (ti < 0 || m.FieldIndex(ti, f) != want + 1) throw bad(ty + "." + f + " = " + want); };
+            enm("ChooseType", "HeroSkill", 0); enm("ChooseType", "Hero", 2);
+            enm("FightSkillType", "Internal", 0);
+            int pit = m.FindType("PlayerInteractionTimeType");
+            if (pit < 0 || m.FieldIndex(pit, "value__") != 0 || m.FieldIndex(pit, "EatFoodTogetherTime") < 0) throw bad("互动次数种类");
+            if (CountFields(m, pit) - 1 >= 40) throw bad("互动次数种类数（本功能用第 40 格）");
+            return t;
+        }
+
+        static int CountFields(Il2CppMeta m, int typeIndex)
+        {
+            int n = 0;
+            while (n < 1000 && FieldName(m, typeIndex, n) != null) n++;
+            return n;
+        }
+
+        static string FieldName(Il2CppMeta m, int typeIndex, int k)
+        {
+            int b = Bin.I32(m.D, 160) + typeIndex * 88;
+            if (k >= Bin.U16(m.D, b + 68)) return null;
+            return m.Str(Bin.I32(m.D, Bin.I32(m.D, 96) + (Bin.I32(m.D, b + 32) + k) * 12));
+        }
+
+        bool SxPatched(byte[] dll) { return new PeImage(dll).Sections.Exists(s => s.Name == SxSectionName); }
+
+        byte[] PatchSx(byte[] dll, byte[] meta)
+        {
+            if (SxPatched(dll)) throw new ModException("DLL 里已经有合欢殿双修");
+            var t = LocateSx(dll, meta);
+            var cave = (byte[])ShuangXiuCave.Code.Clone();
+            ulong caveVa;
+            var outb = PeImage.AddSection(dll, SxSectionName, cave.Length, 0xE0000020u, out caveVa);
+            foreach (var fx in ShuangXiuCave.Fixups)
+            {
+                int at = (int)fx[0];
+                long rel = (long)t.Ext[(string)fx[1]] - (long)(caveVa + (ulong)at + 4);
+                if (rel < int.MinValue || rel > int.MaxValue) throw new ModException("合欢殿双修：跳转距离过大");
+                Array.Copy(BitConverter.GetBytes((int)rel), 0, cave, at, 4);
+            }
+            Array.Copy(cave, 0, outb, new PeImage(outb).VaToOff(caveVa), cave.Length);
+            foreach (var j in new[] { new { Off = t.SmsOff, Va = t.SmsVa, To = caveVa + 0 }, new { Off = t.SfoOff, Va = t.SfoVa, To = caveVa + 5 } })
+            {
+                long jo = new PeImage(outb).VaToOff(j.Va);   // 加大 PE 头后文件偏移会变
+                outb[jo] = 0xE9;
+                Array.Copy(BitConverter.GetBytes((int)((long)j.To - (long)(j.Va + 5))), 0, outb, jo + 1, 4);
+            }
+            return outb;
+        }
+    }
+}
