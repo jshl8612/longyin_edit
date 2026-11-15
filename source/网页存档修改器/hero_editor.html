@@ -152,6 +152,11 @@
   .roster-item.player .roster-item-name::before { content: '★ '; color: var(--vermillion); }
 
   .detail { overflow-y: auto; padding: 0; }
+  /* 人物详情：名字和标签栏固定，只有下面的内容滚动 */
+  .detail:has(> .detail-body) { display: flex; flex-direction: column; overflow: hidden; }
+  .detail:has(> .detail-body) > .detail-head,
+  .detail:has(> .detail-body) > .tabs { flex: none; }
+  .detail-body { flex: 1; min-height: 0; overflow-y: auto; }
   .detail-empty {
     height: 100%; display: flex; align-items: center; justify-content: center;
     font-family: 'Cormorant Garamond', serif; font-style: italic;
@@ -1077,6 +1082,7 @@ function renderDetail() {
         </div>
       `).join('')}
     </div>
+    <div class="detail-body">
     <div class="tab-panel ${state.activeTab === 'basic' ? 'active' : ''}" data-panel="basic">${renderBasic(hero)}</div>
     <div class="tab-panel ${state.activeTab === 'attrs' ? 'active' : ''}" data-panel="attrs">${renderAttrs(hero)}</div>
     <div class="tab-panel ${state.activeTab === 'combat' ? 'active' : ''}" data-panel="combat">${renderCombat(hero)}</div>
@@ -1086,12 +1092,14 @@ function renderDetail() {
     <div class="tab-panel ${state.activeTab === 'equip' ? 'active' : ''}" data-panel="equip">${renderEquip(hero)}</div>
     <div class="tab-panel ${state.activeTab === 'rel' ? 'active' : ''}" data-panel="rel">${renderRelations(hero)}</div>
     <div class="tab-panel ${state.activeTab === 'raw' ? 'active' : ''}" data-panel="raw">${renderRaw(hero)}</div>
+    </div>
   `;
   detail.querySelectorAll('.tab').forEach(t => {
     t.addEventListener('click', () => {
       state.activeTab = t.dataset.tab;
       detail.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
       detail.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.panel === state.activeTab));
+      const body = detail.querySelector('.detail-body'); if (body) body.scrollTop = 0;
     });
   });
   attachListeners(hero);
