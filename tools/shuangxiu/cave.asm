@@ -1102,7 +1102,7 @@ is_rect:
 .r: ret
 
 ; rcx = 经验条 GameObject, rdx = 人物, r8 = 武学 → eax = 1 已在框右边加上「加成±P%」
-; 做法：复制条目里的 "Name" 文字（同字体、同大小），挂在条目下，左边对齐到条目框右边 + F_LGAP，纵向同 Name；
+; 做法：复制条目里的 "Name" 文字（同字体、同大小），挂在条目下，左边对齐到条目框右边 + F_LGAP，纵向与条目框居中；
 ; 条目或 Name 不是 RectTransform 就不做（返回 0，名字处照旧写加成）。
 label_rate:
     push rbx
@@ -1159,6 +1159,14 @@ label_rate:
     addss xmm0, [F_LGAP]
     subss xmm0, [rsp + 0x40]
     movss [rsp + 0x50], xmm0        ; 新文字左边 = 条目右边 + 间距
+    movss xmm0, [rsp + 0x3C]        ; 纵向：新文字中心 = 条目框中心
+    mulss xmm0, [F_HALF]
+    addss xmm0, [rsp + 0x34]        ; 条目中心 y = y + h/2
+    movss xmm1, [rsp + 0x4C]
+    mulss xmm1, [F_HALF]
+    addss xmm1, [rsp + 0x44]        ; Name 中心相对其位置 = y + h/2
+    subss xmm0, xmm1
+    movss [rsp + 0x54], xmm0
     mov rcx, r12
     xor edx, edx
     call X_CGETGO

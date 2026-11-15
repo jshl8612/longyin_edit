@@ -112,7 +112,7 @@ def hook(mu,addr,size,ud):
     elif n=='X_SHOWEXP':
         assert rcx==spe and r9&0xffffffff==1 and arg(5)==0
         go=alloc(0x20); tr=alloc(0x20); w64(tr,TRK[state.get('rect',True)]); GO_T[go]=tr; TPOS[tr]=(5.0,50.0,0.0); w64(spe+0xa8,go)
-        nt=alloc(0x20); w64(nt,TRK[state.get('rect',True)]); NAMET[tr]=nt; TPOS[nt]=(20.0,30.0,0.0); RECT[tr]=(-150,-70,300,140); RECT[nt]=(-100,-20,200,40); T_GO[nt]=alloc(0x20)
+        nt=alloc(0x20); w64(nt,TRK[state.get('rect',True)]); NAMET[tr]=nt; TPOS[nt]=(20.0,30.0,0.0); RECT[tr]=(-150,-70,300,140); RECT[nt]=(-100,-10,200,40); T_GO[nt]=alloc(0x20)
         state['log'].append(('show',r32(SK[rdx]['owner']+0x58),SK[rdx]['id'],f32(g(UC_X86_REG_XMM2)),STRS[arg(4)]))
     elif n=='X_GETTRANS': assert rdx==0; r=GO_T[rcx]
     elif n=='X_GETRECT': assert r8==0 and r64(rdx)==TRK[True]; mu.mem_write(rcx,struct.pack('<4f',*RECT.get(rdx,(-150,-50,300,100)))); r=rcx
@@ -316,7 +316,7 @@ choose('skill',lget(r64(A+0x260))[0]); r=sfo('hhsx5')
 nd=call(15,A,ATTRI,rbx=lget(r64(A+0x260))[0]); check('选好武学后 → 照原样', STRS.get(nd['rax'])=='需求11')
 w8(wk+0x60,1); r=sfo('hhsx6'); ps=ev(r,'pos')
 lb=ev(r,'label')
-check('每条框右边加「加成±P%」（左边对齐框右 +50，纵向同名字）', [(x[2],x[3]) for x in lb]==[((300.0,30.0,0.0),'加成+35%'),((300.0,30.0,0.0),'加成+20%'),((300.0,30.0,0.0),'加成0%')], lb)
+check('每条框右边加「加成±P%」（左边对齐框右 +50，纵向与框居中）', [(x[2],x[3]) for x in lb]==[((300.0,-10.0,0.0),'加成+35%'),((300.0,-10.0,0.0),'加成+20%'),((300.0,-10.0,0.0),'加成0%')], lb)
 ps=[p for p in ps if p[1] in GO_T.values() and p[1] not in CLONE]
 check('结束 → 三条经验条上下排开（行距 150，主角在上）', r['ok'] and [p[2] for p in ps]==[(5.0,200.0,0.0),(5.0,50.0,0.0),(5.0,-100.0,0.0)], ps)
 r=full(d2=False); w64(cc+0x60,mstr('hhsx5'))
