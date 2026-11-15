@@ -168,10 +168,11 @@ def hook(mu,addr,size,ud):
     mu.reg_write(UC_X86_REG_RAX,r)
 mu.hook_add(UC_HOOK_CODE,hook,begin=STUB,end=STUB+0x1000)
 KEEP=[UC_X86_REG_RBX,UC_X86_REG_RSI,UC_X86_REG_RDI,UC_X86_REG_RBP,UC_X86_REG_R12,UC_X86_REG_R13,UC_X86_REG_R14,UC_X86_REG_R15]
-def call(entry,param,thisobj=0):
+def call(entry,param,thisobj=0,rbx=None):
     state['log']=[]
     rsp=STACK+0x40000-8; w64(rsp,0x77770000)
     for k,reg in enumerate(KEEP): mu.reg_write(reg,0x1111*(k+1))
+    if rbx is not None: mu.reg_write(UC_X86_REG_RBX,rbx)
     keep={reg:mu.reg_read(reg) for reg in KEEP}
     mu.reg_write(UC_X86_REG_RSP,rsp); mu.reg_write(UC_X86_REG_RCX,thisobj); mu.reg_write(UC_X86_REG_RDX,param)
     mu.emu_start(CAVE+entry,0x77770000,count=500000)
@@ -215,7 +216,13 @@ choose('skill',Ask); r=sfo('hhsx5'); w=ev(r,'work')
 check('选内功 → 剧情目标人物改回、关对话、开始「双修」进度 2 天（3 级），结束回调 hhsx6', r['ok'] and r64(pc+0x70)==old and 'hideinteract' in r['log'] and w==[('work','双修',2,'StudyFightOther','hhsx6')] and not ev(r,'show'), r)
 check('进度中还没用次数', iget(r64(r64(A+0x308)+0x10))[40:41]!=[0])
 w8(wk+0x60,1); r=sfo('hhsx6'); sh=ev(r,'show')
-check('进度结束 → 经验条面板三条（主角、第一位、第二位），各 2100、标题带名字和各自加成', r['ok'] and sh==[('show',1,100,2100.0,'人1：玉女心经增加实战经验 2100 (+35%)'),('show',11,100,2100.0,'人11：玉女心经增加实战经验 2100 (+20%)'),('show',12,100,2100.0,'人12：玉女心经增加实战经验 2100 (0%)')], sh)
+def nm(sk):
+    r=call(20,0,sk); return r['ok'], STRS.get(r['rax'])
+Ask_=lget(r64(A+0x260))[0]
+check('经验条名字：主角 / 第一位 / 第二位 → 人物名　加成±P%', [nm(P_NG),nm(Ask_),nm(lget(r64(B+0x260))[0])]==[(True,'人1　加成+35%'),(True,'人11　加成+20%'),(True,'人12　加成0%')])
+check('经验条名字：用过即恢复原样', nm(Ask_)==(True,'玉女心经'))
+check('经验条名字：别的武学照原样', nm(P_EX)==(True,'外功'))
+check('进度结束 → 经验条面板三条（主角、第一位、第二位），各 2100，统一标题', r['ok'] and sh==[('show',1,100,2100.0,'双修完成：玉女心经　各得实战经验 2100'),('show',11,100,2100.0,'双修完成：玉女心经　各得实战经验 2100'),('show',12,100,2100.0,'双修完成：玉女心经　各得实战经验 2100')], sh)
 la=iget(r64(r64(A+0x308)+0x10)); lb=iget(r64(r64(B+0x308)+0x10))
 check('两位弟子本月次数用掉（列表补到 41 格，其余补 1）', len(la)==41 and la[40]==0 and la[30:40]==[1]*10 and lb[40]==0, (la,lb))
 r=sms('hhsx0'); t=ev(r,'tip')
@@ -287,21 +294,22 @@ def full(d2=True,rect=True):
         l=r64(r64(h+0x308)+0x10); w32(r64(l+0x10)+0x20+40*4,1)
     w64(A+0x260,mlist([skill(100,0,3,'玉女心经')])); SK[lget(r64(A+0x260))[0]]['owner']=A
     w64(player+0x260,mlist([P_NG])); SK[P_NG]['owner']=player
+    w32(lget(r64(A+0x260))[0]+0x14,7); w32(P_NG+0x14,10); w32(lget(r64(B+0x260))[0]+0x14,3)
     choose('hero',A); sfo('hhsx1')
     if d2: sfo('hhsx2'); choose('hero',B); sfo('hhsx4')
     r=sfo('hhsx3'); return r
 r=full(); w64(cc+0x60,mstr('hhsx5'))
-nd=call(15,A,ATTRI)
-check('武学面板里第一位的武学：修炼需求列出主角、第一位、第二位', nd['ok'] and STRS.get(nd['rax'])=='人1：需求1\n人11：需求11\n人12：需求12', STRS.get(nd['rax']))
-nd=call(15,B,ATTRI); check('别人的武学 → 照原样', nd['ok'] and STRS.get(nd['rax'])=='需求12', STRS.get(nd['rax']))
-state['active']=0; nd=call(15,A,ATTRI); check('面板已关 → 照原样', STRS.get(nd['rax'])=='需求11'); state['active']=1
-w64(cc+0x60,mstr('hhsx1')); nd=call(15,A,ATTRI); check('不是双修武学面板 → 照原样', STRS.get(nd['rax'])=='需求11'); w64(cc+0x60,mstr('hhsx5'))
+nd=call(15,A,ATTRI,rbx=lget(r64(A+0x260))[0])
+check('武学面板里第一位的武学：修炼需求列出主角、第一位、第二位', nd['ok'] and STRS.get(nd['rax'])=='人1（10级）：需求1\n人11（7级）：需求11\n人12（3级）：需求12', STRS.get(nd['rax']))
+nd=call(15,B,ATTRI,rbx=lget(r64(B+0x260))[0]); check('别人的武学 → 照原样', nd['ok'] and STRS.get(nd['rax'])=='需求12', STRS.get(nd['rax']))
+state['active']=0; nd=call(15,A,ATTRI,rbx=lget(r64(A+0x260))[0]); check('面板已关 → 照原样', STRS.get(nd['rax'])=='需求11'); state['active']=1
+w64(cc+0x60,mstr('hhsx1')); nd=call(15,A,ATTRI,rbx=lget(r64(A+0x260))[0]); check('不是双修武学面板 → 照原样', STRS.get(nd['rax'])=='需求11'); w64(cc+0x60,mstr('hhsx5'))
 choose('skill',lget(r64(A+0x260))[0]); r=sfo('hhsx5')
-nd=call(15,A,ATTRI); check('选好武学后 → 照原样', STRS.get(nd['rax'])=='需求11')
+nd=call(15,A,ATTRI,rbx=lget(r64(A+0x260))[0]); check('选好武学后 → 照原样', STRS.get(nd['rax'])=='需求11')
 w8(wk+0x60,1); r=sfo('hhsx6'); ps=ev(r,'pos')
 check('结束 → 三条经验条上下排开（行距 110，主角在上）', r['ok'] and [p[2] for p in ps]==[(5.0,160.0,0.0),(5.0,50.0,0.0),(5.0,-60.0,0.0)], ps)
 r=full(d2=False); w64(cc+0x60,mstr('hhsx5'))
-nd=call(15,A,ATTRI); check('只有一位 → 修炼需求列出主角、她', STRS.get(nd['rax'])=='人1：需求1\n人11：需求11', STRS.get(nd['rax']))
+nd=call(15,A,ATTRI,rbx=lget(r64(A+0x260))[0]); check('只有一位 → 修炼需求列出主角、她', STRS.get(nd['rax'])=='人1（10级）：需求1\n人11（7级）：需求11', STRS.get(nd['rax']))
 choose('skill',lget(r64(A+0x260))[0]); r=sfo('hhsx5'); r=sfo('hhsx6'); ps=ev(r,'pos')
 check('一位 → 两条（行距 110）', [p[2] for p in ps]==[(5.0,105.0,0.0),(5.0,-5.0,0.0)], ps)
 r=full(d2=False,rect=False); choose('skill',lget(r64(A+0x260))[0]); r=sfo('hhsx5'); r=sfo('hhsx6'); ps=ev(r,'pos')

@@ -8,7 +8,8 @@
 //   经验条面板原来固定给主角加经验，SkillExpShowPrefab.Update 里那个 call 改为调用新代码 +10：由武学的主人加；
 //   几条经验条由新代码上下排开（面板本身不排列）。
 //   武学说明的「修炼需求」原来只算武学主人，GetSkillDescribe 里那个 call 改为调用新代码 +15：
-//   双修选武学面板打开时，第一位的武学列出主角、第一位、第二位各自的需求。
+//   双修选武学面板打开时，第一位的武学列出主角、第一位、第二位各自的需求（含当前等级）。
+//   经验条名字：SkillExpShowPrefab.Init 里取武学名的 call 改为调用新代码 +20：双修的几条显示「人物名　加成±P%」。
 using System;
 using System.Collections.Generic;
 
@@ -22,7 +23,7 @@ namespace LongYinMod
         class SxTargets
         {
             public long SmsOff, SfoOff;
-            public ulong SmsVa, SfoVa, ExpCallVa, NeedsCallVa;   // NeedsCallVa：武学说明里「修炼需求」的 call GetSkillNeedsDescribe   // ExpCallVa：经验条面板里 call AddSkillFightExp 的位置
+            public ulong SmsVa, SfoVa, ExpCallVa, NeedsCallVa, NameCallVa;   // NeedsCallVa：武学说明里「修炼需求」的 call GetSkillNeedsDescribe   // ExpCallVa：经验条面板里 call AddSkillFightExp 的位置
             public Dictionary<string, ulong> Ext = new Dictionary<string, ulong>(StringComparer.OrdinalIgnoreCase);
         }
 
@@ -199,6 +200,19 @@ namespace LongYinMod
                 if (CallTarget(pe, dll, q) == t.Ext["Needs"]) { nh = q; nhits++; }
             if (nhits != 1) throw bad("武学说明里的修炼需求");
             t.NeedsCallVa = pe.OffToVa(nh);
+            // 新代码从 rbx 取被说明的武学：调用前应有 mov rcx,rbx ; call DataBase
+            bool rbxSkill = false;
+            for (int z = nh - 0x30; z < nh; z++)
+                if (dll[z] == 0x48 && dll[z + 1] == 0x8B && dll[z + 2] == 0xCB && dll[z + 3] == 0xE8 && CallTarget(pe, dll, z + 3) == t.Ext["Database"]) rbxSkill = true;
+            if (!rbxSkill) throw bad("武学说明里武学在 rbx");
+            fld("KungfuSkillLvData", "lv", 0x14);
+            // 经验条初始化 SkillExpShowPrefab.Init：mov rcx,[rbx+18h](targetSkill) … call KungfuSkillLvData.Name（唯一一处）
+            long ini = pe.VaToOff(va("SkillExpShowPrefab", "Init", none));
+            int nmAt = -1, nmHits = 0;
+            for (int q = (int)ini; q < ini + 0x500; q++)
+                if (dll[q] == 0xE8 && CallTarget(pe, dll, q) == t.Ext["SkName"]) { nmAt = q; nmHits++; }
+            if (nmHits != 1 || Bin.IndexOf(dll, new byte[] { 0x48, 0x8B, 0x4B, 0x18 }, nmAt - 0x18, nmAt) < 0) throw bad("经验条初始化里的武学名");
+            t.NameCallVa = pe.OffToVa(nmAt);
             // 研读天数 = floor(武学等级 × 0.5) + 1：movd xmm0,[rax+34h] ; cvtdq2ps ; mulss ; FloorToInt ; inc eax
             if (Require0(dll, pe.VaToOff(va("BookData", "ReadDayCost", none)), 0x100, new byte[] { 0x66, 0x0F, 0x6E, 0x40, 0x34, 0x33, 0xD2, 0x0F, 0x5B, 0xC0 }) < 0) throw bad("研读天数");
 
@@ -266,6 +280,9 @@ namespace LongYinMod
             // 武学说明「修炼需求」：call GetSkillNeedsDescribe → call 新代码 +15（双修选武学时列出所有参与者）
             long no = new PeImage(outb).VaToOff(t.NeedsCallVa);
             Array.Copy(BitConverter.GetBytes((int)((long)(caveVa + 15) - (long)(t.NeedsCallVa + 5))), 0, outb, no + 1, 4);
+            // 经验条名字：call KungfuSkillLvData.Name → call 新代码 +20（双修的几条换成人物名和加成）
+            long nmo = new PeImage(outb).VaToOff(t.NameCallVa);
+            Array.Copy(BitConverter.GetBytes((int)((long)(caveVa + 20) - (long)(t.NameCallVa + 5))), 0, outb, nmo + 1, 4);
             return outb;
         }
     }

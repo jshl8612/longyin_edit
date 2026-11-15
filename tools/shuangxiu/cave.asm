@@ -97,6 +97,7 @@ EXT X_ACTIVE,      56  ; GameObject.get_activeSelf()
 %define CC_RESULT  0x48   ; ChooseController.chooseResult（GameObject）
 %define ICON_DATA  0x20   ; HeroIconController.heroData / 武学图标.skill
 %define SK_ID      0x10   ; KungfuSkillLvData.skillID
+%define SK_LV      0x14   ; KungfuSkillLvData.lv（0~10）
 %define KF_TYPE    0x30   ; KungFuData.类别（0 = 内功）
 %define KF_LV      0x34   ; KungFuData.等级
 %define MAXN       1000   ; 选人面板最多列出的人数
@@ -110,6 +111,7 @@ entry_sms: jmp strict near sms_hook       ; +0  BuildingUIController.StudyMaxSta
 entry_sfo: jmp strict near sfo_hook       ; +5  PlotController.StudyFightOther(param)
 entry_exp: jmp strict near exp_thunk      ; +10 SkillExpShowPrefab.Update 里的 call AddSkillFightExp 改为 call 这里
 entry_nd:  jmp strict near needs_thunk    ; +15 KungfuSkillLvData.GetSkillDescribe 里「修炼需求」的 call GetSkillNeedsDescribe 改为 call 这里
+entry_nm:  jmp strict near name_thunk     ; +20 SkillExpShowPrefab.Init 里取名字的 call KungfuSkillLvData.Name 改为 call 这里
 
 ; rdx = 参数字符串 → eax = "hhsxN" 的 N，不是则 -1；只改 rax、r10
 marker:
@@ -845,6 +847,10 @@ h6:                                 ; 进度结束：加经验（经验条面板
     push r12
     sub rsp, 0x28
     mov dword [G_N], 0
+    xor eax, eax
+    mov [G_SKL], rax
+    mov [G_SKL + 8], rax
+    mov [G_SKL + 16], rax
     xor ecx, ecx
     call X_WKINST
     test rax, rax
@@ -892,7 +898,9 @@ h6:                                 ; 进度结束：加经验（经验条面板
     pop rbx
     ret
 
-; rcx = 人物：找到该内功，在经验条面板里加一条（标题「名字：武学增加实战经验 N (+P%)」，经验由面板动画按此人的加成加上）
+; rcx = 人物：找到该内功，在经验条面板里加一条（经验由面板动画按此人的加成加上）。
+; 面板标题只有一个（最后一次调用的为准）：统一为「双修完成：武学　各得实战经验 N」；
+; 各条上的名字在 name_thunk 里换成「人物名　加成±P%」。
 show_exp:
     push rbx
     push rsi
@@ -911,62 +919,32 @@ show_exp:
     lea rcx, [EXPTBL]
     mov eax, [rcx + rax * 4]
     mov [rsp + 0x30], eax           ; 经验（整数）
-    mov rcx, rbx
-    xor edx, edx
-    xor r8d, r8d
-    call X_HERONAME
-    mov rdi, rax
-    lea rcx, [S_COLON]
+    lea rcx, [S_TDONE]
     call X_STRNEW
-    mov r12, rax
+    mov rdi, rax
     mov rcx, rsi
     xor edx, edx
     xor r8d, r8d
     call X_SKNAME
-    mov r13, rax
-    lea rcx, [S_ADD]
+    mov r12, rax
+    lea rcx, [S_TGET]
     call X_STRNEW
+    mov r13, rax
+    lea rcx, [rsp + 0x30]
+    xor edx, edx
+    call X_I2S
     mov rcx, rdi
     mov rdx, r12
     mov r8, r13
     mov r9, rax
     mov qword [rsp + 0x20], 0
     call X_CONCAT4
-    mov rdi, rax                    ; 名字：武学增加实战经验␣
-    lea rcx, [rsp + 0x30]
-    xor edx, edx
-    call X_I2S
-    mov r12, rax                    ; N
-    mov rcx, rbx
-    mov rdx, rsi
-    xor r8d, r8d
-    call X_FIGHTRATE                ; 此人的实战经验倍率
-    subss xmm0, [F_ONE]
-    mulss xmm0, [F_100]
-    movss [rsp + 0x34], xmm0
-    lea rcx, [S_PCTFMT]
-    call X_STRNEW
-    lea rcx, [rsp + 0x34]
-    mov rdx, rax
-    xor r8d, r8d
-    call X_F2S
-    mov r13, rax                    ; +P
-    lea rcx, [S_LP]
-    call X_STRNEW
-    mov rcx, rdi
-    mov rdx, r12
-    mov r8, rax
-    mov r9, r13
-    mov qword [rsp + 0x20], 0
-    call X_CONCAT4
-    mov rdi, rax
-    lea rcx, [S_RP]
-    call X_STRNEW
-    mov rcx, rdi
-    mov rdx, rax
-    xor r8d, r8d
-    call X_CONCAT2
     mov rdi, rax                    ; 标题
+    mov ecx, [G_N]                  ; 记下这条的武学（name_thunk 认它）
+    cmp ecx, 3
+    jge .r
+    lea rdx, [G_SKL]
+    mov [rdx + rcx * 8], rsi
     xor ecx, ecx
     call X_SPEINST
     test rax, rax
@@ -984,12 +962,81 @@ show_exp:
     jz .r
     mov rax, [rax + SPE_NEWOBJ]
     mov ecx, [G_N]
-    cmp ecx, 3
-    jge .r
     lea rdx, [G_OBJ]
     mov [rdx + rcx * 8], rax
     inc dword [G_N]
 .r: add rsp, 0x40
+    pop r13
+    pop r12
+    pop rdi
+    pop rsi
+    pop rbx
+    ret
+
+; 经验条初始化（SkillExpShowPrefab.Init）里取名字的 call KungfuSkillLvData.Name 改为 call 这里（入口 +20）：
+; 是双修刚加的那几条（武学在 G_SKL 里）→ 名字换成「人物名　加成±P%」（P = 此人实战经验倍率 − 1），用过即清；否则照原样。
+name_thunk:                         ; rcx = 武学, dl = colored, r8 = MethodInfo
+    push rbx
+    push rsi
+    push rdi
+    push r12
+    push r13
+    sub rsp, 0x30
+    mov rbx, rcx
+    call X_SKNAME
+    mov rsi, rax
+    test rbx, rbx
+    jz .ret
+    xor ecx, ecx
+    lea rax, [G_SKL]
+.f: cmp ecx, 3
+    jge .ret
+    cmp [rax + rcx * 8], rbx
+    je .hit
+    inc ecx
+    jmp .f
+.hit:
+    mov qword [rax + rcx * 8], 0
+    mov rcx, rbx
+    xor edx, edx
+    call X_BELONG
+    test rax, rax
+    jz .ret
+    mov rdi, rax
+    mov rcx, rdi
+    xor edx, edx
+    xor r8d, r8d
+    call X_HERONAME
+    mov r12, rax
+    mov rcx, rdi
+    mov rdx, rbx
+    xor r8d, r8d
+    call X_FIGHTRATE
+    subss xmm0, [F_ONE]
+    mulss xmm0, [F_100]
+    movss [rsp + 0x28], xmm0
+    lea rcx, [S_PCTFMT]
+    call X_STRNEW
+    lea rcx, [rsp + 0x28]
+    mov rdx, rax
+    xor r8d, r8d
+    call X_F2S
+    mov r13, rax                    ; ±P
+    lea rcx, [S_RATEL]
+    call X_STRNEW
+    mov [rsp + 0x28], rax
+    lea rcx, [S_PCT]
+    call X_STRNEW
+    mov rcx, r12
+    mov rdx, [rsp + 0x28]
+    mov r8, r13
+    mov r9, rax
+    mov qword [rsp + 0x20], 0
+    call X_CONCAT4
+    mov rsi, rax
+.ret:
+    mov rax, rsi
+    add rsp, 0x30
     pop r13
     pop r12
     pop rdi
@@ -1095,6 +1142,8 @@ needs_thunk:                        ; rcx = AttriNumData（这门武学的需求
     push r13
     push r14
     sub rsp, 0x28
+    mov eax, [rbx + SK_ID]          ; 调用处 rbx = 被说明的武学（KungfuSkillLvData，安装时核对）
+    mov [G_NSID], eax
     mov rbx, rcx
     mov rsi, rdx
     cmp byte [G_SEL], 0
@@ -1169,7 +1218,7 @@ needs_thunk:                        ; rcx = AttriNumData（这门武学的需求
     pop rbx
     ret
 
-one_needs:                          ; rcx = 人物, rdx = AttriNumData, r8 = 开头（C 字符串）→ 开头 + 名字 + "：" + 需求
+one_needs:                          ; rcx = 人物, rdx = AttriNumData, r8 = 开头（C 字符串）→ 开头 + 名字 +「（N级）」+ "：" + 需求
     push rbx
     push rsi
     push rdi
@@ -1186,6 +1235,31 @@ one_needs:                          ; rcx = 人物, rdx = AttriNumData, r8 = 开
     xor r8d, r8d
     call X_HERONAME
     mov r12, rax
+    mov rcx, rbx                    ; 此人这门武学的当前等级
+    mov edx, [G_NSID]
+    xor r8d, r8d
+    call X_FINDSKILL
+    test rax, rax
+    jz .nolv
+    mov eax, [rax + SK_LV]
+    mov [rsp + 0x28], eax
+    lea rcx, [S_LVL]
+    call X_STRNEW
+    mov r13, rax
+    lea rcx, [rsp + 0x28]
+    xor edx, edx
+    call X_I2S
+    mov [rsp + 0x28], rax
+    lea rcx, [S_LVR]
+    call X_STRNEW
+    mov rcx, r12
+    mov rdx, r13
+    mov r8, [rsp + 0x28]
+    mov r9, rax
+    mov qword [rsp + 0x20], 0
+    call X_CONCAT4
+    mov r12, rax                    ; 名字（N级）
+.nolv:
     mov rcx, rsi
     mov rdx, rbx
     xor r8d, r8d
@@ -1246,11 +1320,14 @@ P3:       db "我们并无共同修习的内功，今日只怕无从双修了。
 M6:       db "hhsx6", 0
 S_WORK:   db "双修", 0
 S_COLON:  db "：", 0
-S_ADD:    db "增加实战经验 ", 0
-S_LP:     db " (", 0
-S_RP:     db "%)", 0
 S_PCTFMT: db "+0;-0;0", 0
 S_RECT:   db "RectTransform", 0
+S_TDONE:  db "双修完成：", 0
+S_TGET:   db "　各得实战经验 ", 0
+S_RATEL:  db "　加成", 0
+S_PCT:    db "%", 0
+S_LVL:    db "（", 0
+S_LVR:    db "级）", 0
 S_EMPTY:  db 0
 S_NL:     db 10, 0
 align 4
@@ -1277,9 +1354,11 @@ G_D1:     dd -1                     ; 第一位 heroID
 G_D2:     dd -1                     ; 第二位 heroID（-1 = 无）
 G_SID:    dd 0                      ; 选中的内功 skillID
 G_N:      dd 0                      ; 经验条条数
+G_NSID:   dd 0                      ; 修炼需求：被说明武学的 skillID
 G_SEL:    db 0, 0, 0, 0             ; 双修武学面板打开中
 align 8
 G_OBJ:    dq 0, 0, 0                ; 经验条 GameObject
+G_SKL:    dq 0, 0, 0                ; 经验条对应的武学（等 Init 时换名字）
 G_LV:     dd 0                      ; 它的武学等级（0~5）
 FL:       times 0x20 db 0           ; 假 List：+10h 数组，+18h 个数（ShowChoosePanel 只读这两项，并立即复制）
 FL2:      times 0x20 db 0
