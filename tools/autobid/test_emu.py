@@ -175,6 +175,8 @@ r=call(0,rcx=btn_of(sc)); check('点开拍旁「自动出价」（Button 在子�
 r=update(step=1); check('开拍后两个开拍类按钮都隐藏', not OBJ[startBtn]['active'] and not OBJ[sc]['active'])
 r=update(); check('别人领先 → 自动出价', r['log'][:2]==['出价 1000','协程'] and r['rsp_ok'] and 'clobber' not in r, r)
 check('竞价中出价旁按钮显示', OBJ[bc]['active'])
+r=update(step=3); check('有人刚出价（auctionStep 3）时出价旁按钮仍显示、不出价', OBJ[bc]['active'] and '协程' not in r['log'], r['log'])
+r=update(step=4); check('成交阶段（4）出价旁按钮隐藏', not OBJ[bc]['active'])
 check('出价按钮文字变「停止自动」', label(bc)=='停止自动')
 r=update(hero=player); check('自己领先 → 不出价', '协程' not in r['log'], r['log'])
 r=update(skip=1); check('快进（skipping）时照样出价', '协程' in r['log'], r['log'])
