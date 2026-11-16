@@ -1051,6 +1051,9 @@ function renderDetail() {
     return;
   }
   const hero = state.rawData[state.selectedIdx];
+  // 同一人物同一标签页重新渲染（+10、增删等）时保持滚动位置；换人物 / 换标签才回到顶部
+  const oldBody = detail.querySelector('.detail-body');
+  const keepScroll = oldBody && detail.dataset.renderKey === state.selectedIdx + ':' + state.activeTab ? oldBody.scrollTop : 0;
   const tabs = [
     { id: 'basic',   label: '基本',     n: '' },
     { id: 'attrs',   label: '属性',     n: '' },
@@ -1100,8 +1103,11 @@ function renderDetail() {
       detail.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
       detail.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.panel === state.activeTab));
       const body = detail.querySelector('.detail-body'); if (body) body.scrollTop = 0;
+      detail.dataset.renderKey = state.selectedIdx + ':' + state.activeTab;
     });
   });
+  detail.dataset.renderKey = state.selectedIdx + ':' + state.activeTab;
+  const newBody = detail.querySelector('.detail-body'); if (newBody && keepScroll) newBody.scrollTop = keepScroll;
   attachListeners(hero);
 }
 
